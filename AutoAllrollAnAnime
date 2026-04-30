@@ -1,9 +1,9 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "MonHub | Block Master V6.5",
-   LoadingTitle = "Scanning UI Inventory...",
-   LoadingSubtitle = "Location: PlayerGui.Main.DiceContainer",
+   Name = "MonHub | Block Master V6.6",
+   LoadingTitle = "Ultra Scanner Loading...",
+   LoadingSubtitle = "Fixing UI Detection Issue",
    ConfigurationSaving = { Enabled = false }
 })
 
@@ -32,10 +32,10 @@ local CurrentLock = nil
 -- ==========================================
 local MainTab = Window:CreateTab("Roll & Buy", 4483362458)
 
--- 1.1 SMART FOCUS (ล็อคตามตำแหน่ง UI ที่คุณเจอมา)
-MainTab:CreateSection("Smart Focus Roll")
+MainTab:CreateSection("Smart Focus (Fix UI Lock)")
+
 MainTab:CreateToggle({
-   Name = "Smart Roll (UI Inventory Scan)",
+   Name = "Smart Roll (UI Inventory Lock)",
    CurrentValue = false,
    Callback = function(Value)
       _G.SmartLock = Value
@@ -50,32 +50,44 @@ MainTab:CreateToggle({
             local bestInInv = nil
             local Player = game:GetService("Players").LocalPlayer
             
-            -- ตำแหน่งที่คุณบอกมา
-            local InventoryPath = Player.PlayerGui:FindFirstChild("Main") 
-               and Player.PlayerGui.Main:FindFirstChild("DiceContainer")
-               and Player.PlayerGui.Main.DiceContainer:FindFirstChild("Inventory")
-               and Player.PlayerGui.Main.DiceContainer.Inventory:FindFirstChild("Scroll")
+            -- ระบบรอให้ UI โหลดเผื่อหลุด
+            local MainGui = Player.PlayerGui:FindFirstChild("Main")
+            local Scroll = MainGui and MainGui:FindFirstChild("DiceContainer") 
+                           and MainGui.DiceContainer:FindFirstChild("Inventory") 
+                           and MainGui.DiceContainer.Inventory:FindFirstChild("Scroll")
 
-            if InventoryPath then
-               -- สแกนจากอันที่เทพที่สุดย้อนลงมา
+            if Scroll then
+               -- วนลูปเช็คจาก Pinnacle ลงมา
                for i = #SortedBlocks, 1, -1 do
                   local target = SortedBlocks[i]
-                  -- เช็คว่ามีชื่อลูกเต๋าอยู่ใน Scroll หรือไม่
-                  if InventoryPath:FindFirstChild(target) then
+                  local found = false
+                  
+                  -- สแกนหา Child ใน Scroll ที่ชื่อคล้ายหรือตรงกับบล็อก
+                  for _, item in pairs(Scroll:GetChildren()) do
+                     -- เช็คว่าชื่อไอเทมใน UI มีคำว่า 'KingSun' หรือตรงเป๊ะไหม
+                     if item.Name:lower():find(target:lower()) or target:lower():find(item.Name:lower()) then
+                        found = true
+                        break
+                     end
+                  end
+                  
+                  if found then
                      bestInInv = target
                      break
                   end
                end
             end
 
-            -- ถ้าเจอ KingsunBlock หรืออันที่ดีที่สุดใน UI และยังไม่ได้ล็อค
+            -- ถ้าเจอแล้ว และยังไม่ได้ล็อค
             if bestInInv and bestInInv ~= CurrentLock then
                CurrentLock = bestInInv
                pcall(function()
+                  -- บังคับเลือกบล็อกนั้น
                   game:GetService("ReplicatedStorage").Network.Client.RollBlock:InvokeServer(bestInInv)
+                  -- เปิด Auto Roll (True)
                   game:GetService("ReplicatedStorage").Network.Client.ToggleAutoRoll:FireServer(true)
                end)
-               Rayfield:Notify({Title = "Target Locked!", Content = "ล็อคเป้าหมาย UI: " .. bestInInv, Duration = 3})
+               Rayfield:Notify({Title = "UI Locked Success!", Content = "ล็อคเป้าหมายจาก UI: " .. bestInInv, Duration = 3})
             end
             task.wait(2)
          end
@@ -106,7 +118,7 @@ MainTab:CreateToggle({
    end,
 })
 
--- 1.3 Auto Buy (ระบบเหมาทุกอย่างและเลือกซื้อ อยู่ครบ)
+-- 1.3 Auto Buy (ตรวจสอบแล้ว: อยู่ครบ)
 MainTab:CreateSection("Auto Buy Systems")
 MainTab:CreateToggle({
    Name = "Auto Buy ALL List (ทุกบล็อก)",
@@ -145,11 +157,11 @@ MainTab:CreateToggle({
 })
 
 -- ==========================================
--- [[ Tab 2: Pets ]]
+-- [[ Tab 2: Pets (Full) ]]
 -- ==========================================
 local PetTab = Window:CreateTab("Pets", 4483362458)
 PetTab:CreateDropdown({
-   Name = "Select Egg (Crocodile/GoldenBasic)",
+   Name = "Select Egg",
    Options = PetEggs,
    CurrentOption = "",
    MultipleOptions = false,
@@ -170,7 +182,7 @@ PetTab:CreateToggle({
 })
 
 -- ==========================================
--- [[ Tab 3: Upgrades ]]
+-- [[ Tab 3: Upgrades (Full) ]]
 -- ==========================================
 local UpTab = Window:CreateTab("Upgrades", 4483362458)
 UpTab:CreateInput({
@@ -205,7 +217,7 @@ UpTab:CreateToggle({
 })
 
 -- ==========================================
--- [[ Tab 4: Misc ]]
+-- [[ Tab 4: Misc (Full) ]]
 -- ==========================================
 local MiscTab = Window:CreateTab("Misc", 4483362458)
 MiscTab:CreateToggle({
