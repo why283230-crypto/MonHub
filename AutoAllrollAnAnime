@@ -1,13 +1,13 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "MonHub | Block Master V5.8",
-   LoadingTitle = "Switching to Toggle Logic...",
-   LoadingSubtitle = "Mode: Auto-Switch Priority",
+   Name = "MonHub | Block Master V5.9",
+   LoadingTitle = "Player Data Locking...",
+   LoadingSubtitle = "Scanning Best Block in Inventory",
    ConfigurationSaving = { Enabled = false }
 })
 
--- [[ DATA LISTS ]]
+-- [[ DATA: 33 Blocks Verified ]]
 local SortedBlocks = {
     "CommonBlock", "UncommonBlock", "RareBlock", "EpicBlock", "LegendaryBlock",
     "MythicBlock", "GalaxyBlock", "QuantumBlock", "AscendantBlock", "DevilBlock",
@@ -20,78 +20,189 @@ local SortedBlocks = {
 
 local PetEggs = { "Basic", "Coconut", "Crocodile", "Yeti", "Cupcake", "GoldenBasic" }
 
-local CurrentActiveToggle = nil -- เก็บชื่อบล็อกที่กำลังเปิด Auto อยู่
+-- Variables
+local SelectedRoll = ""
+local SelectedBuyList = {}
+local SelectedPlot = "1"
+local SelectedEgg = ""
+local CurrentLock = nil
 
 -- ==========================================
 -- [[ Tab 1: Roll & Buy ]]
 -- ==========================================
 local MainTab = Window:CreateTab("Roll & Buy", 4483362458)
 
-MainTab:CreateSection("Smart Toggle Roll (ล็อคอันเทพสุด)")
-
+-- 1.1 SMART FOCUS (ล็อคจากข้อมูลในตัวผู้เล่น)
+MainTab:CreateSection("Smart Focus (ล็อคอันที่เทพที่สุดในตัว)")
 MainTab:CreateToggle({
-   Name = "Smart Auto Roll (Best -> Worst)",
+   Name = "Smart Roll (Lock Inventory Best)",
    CurrentValue = false,
    Callback = function(Value)
-      _G.SmartToggle = Value
+      _G.SmartLock = Value
       
-      -- ฟังก์ชันสำหรับปิด Auto Roll ที่เปิดค้างไว้
-      local function shutOffCurrent()
-         if CurrentActiveToggle then
-            pcall(function()
-               game:GetService("ReplicatedStorage").Network.Client.ToggleAutoRoll:FireServer(false)
-            end)
-            CurrentActiveToggle = nil
-         end
-      end
-
       if not Value then
-         shutOffCurrent()
+         pcall(function() game:GetService("ReplicatedStorage").Network.Client.ToggleAutoRoll:FireServer(false) end)
+         CurrentLock = nil
          return
       end
 
       task.spawn(function()
-         while _G.SmartToggle do
-            local bestAvailable = nil
+         while _G.SmartLock do
+            local bestInInv = nil
             
-            -- 1. หาบล็อกที่ดีที่สุดที่เรา "มีสิทธิ์" สุ่มได้
-            for i = #SortedBlocks, 1, -1 do
-               local name = SortedBlocks[i]
-               if game:GetService("Players").LocalPlayer.Blocks:FindFirstChild(name) then
-                  bestAvailable = name
-                  break
+            -- ส่องข้อมูลในตัวผู้เล่น (Inventory Scanning)
+            pcall(function()
+               local playerBlocks = game:GetService("Players").LocalPlayer.Blocks:GetChildren()
+               for i = #SortedBlocks, 1, -1 do
+                  local targetName = SortedBlocks[i]
+                  if game:GetService("Players").LocalPlayer.Blocks:FindFirstChild(targetName) then
+                     bestInInv = targetName
+                     break
+                  end
                end
-            end
+            end)
 
-            -- 2. ถ้าบล็อกที่เทพที่สุด "เปลี่ยนไป" หรือ "ยังไม่ได้เปิด"
-            if bestAvailable and bestAvailable ~= CurrentActiveToggle then
-               shutOffCurrent() -- ปิดอันเก่าก่อน
-               
-               -- เลือกบล็อกใหม่ (ต้องเลือกบล็อกก่อนแล้วค่อยกด Toggle)
+            -- ถ้าเจออันที่ดีที่สุด และยังไม่ได้ล็อคอันนี้ไว้
+            if bestInInv and bestInInv ~= CurrentLock then
+               CurrentLock = bestInInv
                pcall(function()
-                  -- ส่งคำสั่งเลือกบล็อกเทพที่สุด
-                  game:GetService("ReplicatedStorage").Network.Client.RollBlock:InvokeServer(bestAvailable)
-                  -- สั่งเปิด Auto Roll (True)
+                  -- 1. เลือกบล็อกที่จะสุ่มก่อน
+                  game:GetService("ReplicatedStorage").Network.Client.RollBlock:InvokeServer(bestInInv)
+                  -- 2. เปิดระบบ Auto ของเกมล็อคไว้อันเดียว
                   game:GetService("ReplicatedStorage").Network.Client.ToggleAutoRoll:FireServer(true)
                end)
                
-               CurrentActiveToggle = bestAvailable
                Rayfield:Notify({
-                  Title = "Smart Roll Switched",
-                  Content = "Now Focusing: " .. bestAvailable,
+                  Title = "Inventory Lock Updated",
+                  Content = "ล็อคเป้าสุ่มบล็อกที่ดีที่สุด: " .. bestInInv,
                   Duration = 3
                })
             end
-            
-            -- 3. ระบบตรวจสอบ (ถ้า Auto หลุด หรือเงื่อนไขเปลี่ยน)
-            -- เราจะวนเช็กทุกๆ 5 วินาที เพื่อไม่ให้หนักเครื่องเกินไป
-            task.wait(5) 
+            task.wait(2) -- วนเช็กข้อมูลในตัวทุก 2 วินาที เผื่อมีการปลดล็อคใหม่
          end
-         shutOffCurrent()
       end)
    end,
 })
 
--- ฟังก์ชันอื่นๆ (เหมือนเดิมครบถ้วน)
-MainTab:CreateSection("Manual Systems")
--- [Dropdown Roll, Multi-Buy, Buy All ลอกมาจาก V5.7 ได้เลยครับ]
+-- 1.2 MANUAL ROLL (ระบบเดิม)
+MainTab:CreateSection("Manual Roll")
+MainTab:CreateDropdown({
+   Name = "Select Block to Roll",
+   Options = SortedBlocks,
+   CurrentOption = "",
+   MultipleOptions = false,
+   Callback = function(Option) SelectedRoll = Option[1] end,
+})
+MainTab:CreateToggle({
+   Name = "Auto Roll Selected",
+   CurrentValue = false,
+   Callback = function(Value)
+      _G.AutoRoll = Value
+      while _G.AutoRoll do
+         if SelectedRoll ~= "" then
+            pcall(function() game:GetService("ReplicatedStorage").Network.Client.RollBlock:InvokeServer(SelectedRoll) end)
+         end
+         task.wait(0.05)
+      end
+   end,
+})
+
+-- 1.3 AUTO BUY (ระบบเดิม)
+MainTab:CreateSection("Auto Buy")
+MainTab:CreateDropdown({
+   Name = "Multi-Select Buy",
+   Options = SortedBlocks,
+   CurrentOption = {},
+   MultipleOptions = true,
+   Callback = function(Options) SelectedBuyList = Options end,
+})
+MainTab:CreateToggle({
+   Name = "Auto Buy Max (Selected)",
+   CurrentValue = false,
+   Callback = function(Value)
+      _G.AutoBuyMax = Value
+      while _G.AutoBuyMax do
+         for _, itemName in pairs(SelectedBuyList) do
+            if not _G.AutoBuyMax then break end
+            pcall(function() game:GetService("ReplicatedStorage").Network.Client.PurchaseMaxItems:InvokeServer(itemName, 999) end)
+         end
+         task.wait(0.05)
+      end
+   end,
+})
+
+-- ==========================================
+-- [[ Tab 2: Pets ]]
+-- ==========================================
+local PetTab = Window:CreateTab("Pets", 4483362458)
+PetTab:CreateDropdown({
+   Name = "Select Egg",
+   Options = PetEggs,
+   CurrentOption = "",
+   MultipleOptions = false,
+   Callback = function(Option) SelectedEgg = Option[1] end,
+})
+PetTab:CreateToggle({
+   Name = "Auto Hatch (0.1s)",
+   CurrentValue = false,
+   Callback = function(Value)
+      _G.AutoHatch = Value
+      while _G.AutoHatch do
+         if SelectedEgg ~= "" then
+            pcall(function() game:GetService("ReplicatedStorage").Network.Client.Hatch:InvokeServer(SelectedEgg, 1) end)
+         end
+         task.wait(0.1)
+      end
+   end,
+})
+
+-- ==========================================
+-- [[ Tab 3: Upgrades ]]
+-- ==========================================
+local UpTab = Window:CreateTab("Upgrades", 4483362458)
+UpTab:CreateInput({
+   Name = "Plot Number",
+   PlaceholderText = "1",
+   Callback = function(Text) SelectedPlot = Text end,
+})
+UpTab:CreateToggle({
+   Name = "Auto Upgrade All Plots (1-100)",
+   CurrentValue = false,
+   Callback = function(Value)
+      _G.UpAll = Value
+      while _G.UpAll do
+         for i = 1, 100 do
+            if not _G.UpAll then break end
+            pcall(function() game:GetService("ReplicatedStorage").Network.Client.UpgradeBrainrot:InvokeServer(tostring(i)) end)
+         end
+         task.wait(0.1)
+      end
+   end,
+})
+
+-- ==========================================
+-- [[ Tab 4: Misc ]]
+-- ==========================================
+local MiscTab = Window:CreateTab("Misc", 4483362458)
+MiscTab:CreateToggle({
+   Name = "Auto Equip Best",
+   CurrentValue = false,
+   Callback = function(Value)
+      _G.AutoEquip = Value
+      while _G.AutoEquip do
+         pcall(function() game:GetService("ReplicatedStorage").Network.Client.EquipBestEntities:InvokeServer() end)
+         task.wait(1)
+      end
+   end,
+})
+MiscTab:CreateToggle({
+   Name = "Auto Sell (True)",
+   CurrentValue = false,
+   Callback = function(Value)
+      _G.AutoSell = Value
+      while _G.AutoSell do
+         pcall(function() game:GetService("ReplicatedStorage").Network.Client.SellAllEntities:InvokeServer(true) end)
+         task.wait(1)
+      end
+   end,
+})
