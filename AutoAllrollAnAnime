@@ -1,9 +1,9 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "MonHub | Block Master V5.9",
-   LoadingTitle = "Player Data Locking...",
-   LoadingSubtitle = "Scanning Best Block in Inventory",
+   Name = "MonHub | Block Master V6.0",
+   LoadingTitle = "Fixing All Systems...",
+   LoadingSubtitle = "Scanning Real Inventory Data",
    ConfigurationSaving = { Enabled = false }
 })
 
@@ -32,10 +32,10 @@ local CurrentLock = nil
 -- ==========================================
 local MainTab = Window:CreateTab("Roll & Buy", 4483362458)
 
--- 1.1 SMART FOCUS (ล็อคจากข้อมูลในตัวผู้เล่น)
-MainTab:CreateSection("Smart Focus (ล็อคอันที่เทพที่สุดในตัว)")
+-- 1.1 SMART LOCK (เช็คของที่มีในตัวจริงๆ)
+MainTab:CreateSection("Smart Focus (ล็อคอันที่สุ่มได้จริง)")
 MainTab:CreateToggle({
-   Name = "Smart Roll (Lock Inventory Best)",
+   Name = "Smart Roll (Lock Real Best)",
    CurrentValue = false,
    Callback = function(Value)
       _G.SmartLock = Value
@@ -50,41 +50,40 @@ MainTab:CreateToggle({
          while _G.SmartLock do
             local bestInInv = nil
             
-            -- ส่องข้อมูลในตัวผู้เล่น (Inventory Scanning)
-            pcall(function()
-               local playerBlocks = game:GetService("Players").LocalPlayer.Blocks:GetChildren()
-               for i = #SortedBlocks, 1, -1 do
-                  local targetName = SortedBlocks[i]
-                  if game:GetService("Players").LocalPlayer.Blocks:FindFirstChild(targetName) then
-                     bestInInv = targetName
-                     break
-                  end
+            -- สแกนจากหลังมาหน้า (เทพไปกาก)
+            for i = #SortedBlocks, 1, -1 do
+               local targetName = SortedBlocks[i]
+               -- เช็คว่าในตัวละครมี Folder หรือข้อมูลที่ยืนยันว่าปลดล็อกบล็อกนี้หรือยัง
+               -- โดยปกติเกมจะเก็บไว้ใน Players.LocalPlayer.Blocks หรือ Folder ที่คล้ายกัน
+               local hasData = game:GetService("Players").LocalPlayer:FindFirstChild("Blocks") and game:GetService("Players").LocalPlayer.Blocks:FindFirstChild(targetName)
+               
+               if hasData then
+                  bestInInv = targetName
+                  break
                end
-            end)
+            end
 
-            -- ถ้าเจออันที่ดีที่สุด และยังไม่ได้ล็อคอันนี้ไว้
+            -- ถ้าเจออันที่เทพที่สุดที่เรา 'มีจริงๆ' และยังไม่ได้ล็อค
             if bestInInv and bestInInv ~= CurrentLock then
                CurrentLock = bestInInv
                pcall(function()
-                  -- 1. เลือกบล็อกที่จะสุ่มก่อน
                   game:GetService("ReplicatedStorage").Network.Client.RollBlock:InvokeServer(bestInInv)
-                  -- 2. เปิดระบบ Auto ของเกมล็อคไว้อันเดียว
                   game:GetService("ReplicatedStorage").Network.Client.ToggleAutoRoll:FireServer(true)
                end)
                
                Rayfield:Notify({
-                  Title = "Inventory Lock Updated",
-                  Content = "ล็อคเป้าสุ่มบล็อกที่ดีที่สุด: " .. bestInInv,
+                  Title = "Smart Lock Updated",
+                  Content = "ล็อคเป้าหมายไปที่: " .. bestInInv,
                   Duration = 3
                })
             end
-            task.wait(2) -- วนเช็กข้อมูลในตัวทุก 2 วินาที เผื่อมีการปลดล็อคใหม่
+            task.wait(2)
          end
       end)
    end,
 })
 
--- 1.2 MANUAL ROLL (ระบบเดิม)
+-- 1.2 MANUAL ROLL
 MainTab:CreateSection("Manual Roll")
 MainTab:CreateDropdown({
    Name = "Select Block to Roll",
@@ -107,8 +106,22 @@ MainTab:CreateToggle({
    end,
 })
 
--- 1.3 AUTO BUY (ระบบเดิม)
-MainTab:CreateSection("Auto Buy")
+-- 1.3 AUTO BUY (เอากลับมาให้ครบแล้วครับ!)
+MainTab:CreateSection("Auto Buy Systems")
+MainTab:CreateToggle({
+   Name = "Auto Buy ALL List (ซื้อทุกอย่าง)",
+   CurrentValue = false,
+   Callback = function(Value)
+      _G.BuyAll = Value
+      while _G.BuyAll do
+         for _, itemName in pairs(SortedBlocks) do
+            if not _G.BuyAll then break end
+            pcall(function() game:GetService("ReplicatedStorage").Network.Client.PurchaseMaxItems:InvokeServer(itemName, 999) end)
+         end
+         task.wait(0.1)
+      end
+   end,
+})
 MainTab:CreateDropdown({
    Name = "Multi-Select Buy",
    Options = SortedBlocks,
