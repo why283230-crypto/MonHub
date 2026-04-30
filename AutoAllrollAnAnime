@@ -1,10 +1,14 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "MonHub | Block Master V8.2",
+   Name = "MonHub | Block Master V8.9",
    LoadingTitle = "Ultimate System Restoration...",
    LoadingSubtitle = "Every Function Is Now Here",
-   ConfigurationSaving = { Enabled = false }
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = "MonHubConfigs",
+      FileName = "BlockMaster_Save"
+   }
 })
 
 -- [[ DATA LISTS ]]
@@ -18,7 +22,7 @@ local WaterfallList = { -- ลิสต์สำหรับ Smart Roll (เท�
     "RareBlock", "UncommonBlock", "CommonBlock"
 }
 
-local NormalList = { -- ลิสต์สำหรับ Manual Roll / Auto Buy (กาก -> เทพ)
+local NormalList = { -- ลิสต์สำหรับ Manual Roll / Auto Buy (กาก -> ทพ)
     "CommonBlock", "UncommonBlock", "RareBlock", "EpicBlock", "LegendaryBlock",
     "MythicBlock", "GalaxyBlock", "QuantumBlock", "AscendantBlock", "DevilBlock",
     "HeavenlyBlock", "MagicBlock", "BrambleBlock", "TimeBenderBlock", "InfinityBlock",
@@ -64,6 +68,7 @@ RollTab:CreateSection("Smart Waterfall (ระบบลดระดับอั�
 RollTab:CreateToggle({
    Name = "Enable Smart Waterfall (Auto Best)",
    CurrentValue = false,
+   Flag = "SmartRoll_Toggle",
    Callback = function(Value)
       _G.SmartRollActive = Value
       StatusFrame.Visible = Value
@@ -107,10 +112,12 @@ RollTab:CreateSection("Manual Roll (ระบบสุ่มปกติ)")
 RollTab:CreateDropdown({
    Name = "Select Block",
    Options = NormalList,
+   Flag = "ManualTarget_Drop",
    Callback = function(Option) Config.ManualTarget = Option[1] end,
 })
 RollTab:CreateToggle({
    Name = "Start Manual Roll",
+   Flag = "ManualRoll_Toggle",
    Callback = function(Value)
       _G.ManualRoll = Value
       while _G.ManualRoll do
@@ -133,6 +140,7 @@ local BuyTab = Window:CreateTab("Auto Buy", 4483362458)
 BuyTab:CreateSection("ระบบซื้อทั้งหมด")
 BuyTab:CreateToggle({
    Name = "Auto Buy ALL (33 Blocks)",
+   Flag = "BuyAll_Toggle",
    Callback = function(V) 
       _G.BAll = V 
       while _G.BAll do 
@@ -150,10 +158,12 @@ BuyTab:CreateDropdown({
    Name = "เลือกบล็อกที่จะซื้อ",
    Options = NormalList,
    MultipleOptions = true,
+   Flag = "SelectedBuy_Drop",
    Callback = function(O) Config.SelectedBuyList = O end,
 })
 BuyTab:CreateToggle({
    Name = "Auto Buy Selected Max",
+   Flag = "BuySelected_Toggle",
    Callback = function(V) 
       _G.BSel = V 
       while _G.BSel do 
@@ -172,27 +182,64 @@ BuyTab:CreateToggle({
 local UpTab = Window:CreateTab("Pets & Upgrades", 4483362458)
 
 UpTab:CreateSection("Auto Hatch Pets")
-UpTab:CreateDropdown({ Name = "Select Egg", Options = PetEggs, Callback = function(O) Config.SelectedEgg = O[1] end })
-UpTab:CreateToggle({ Name = "Start Hatching (0.1s)", Callback = function(V) _G.Hatch = V while _G.Hatch do if Config.SelectedEgg ~= "" then pcall(function() game:GetService("ReplicatedStorage").Network.Client.Hatch:InvokeServer(Config.SelectedEgg, 1) end) end task.wait(0.1) end end })
+UpTab:CreateDropdown({ Name = "Select Egg", Options = PetEggs, Flag = "Egg_Drop", Callback = function(O) Config.SelectedEgg = O[1] end })
+UpTab:CreateToggle({ Name = "Start Hatching (0.1s)", Flag = "Hatch_Toggle", Callback = function(V) _G.Hatch = V while _G.Hatch do if Config.SelectedEgg ~= "" then pcall(function() game:GetService("ReplicatedStorage").Network.Client.Hatch:InvokeServer(Config.SelectedEgg, 1) end) end task.wait(0.1) end end })
 
 UpTab:CreateSection("Turbo Upgrade System (0.01s)")
-UpTab:CreateInput({ Name = "Plot Number (1-100)", PlaceholderText = "1", Callback = function(T) Config.SelectedPlot = T end })
-UpTab:CreateToggle({ Name = "Upgrade Selected Plot", Callback = function(V) _G.UpS = V while _G.UpS do pcall(function() game:GetService("ReplicatedStorage").Network.Client.UpgradeBrainrot:InvokeServer(Config.SelectedPlot) end) task.wait(0.01) end end })
-UpTab:CreateToggle({ Name = "Upgrade ALL Plots", Callback = function(V) _G.UpA = V while _G.UpA do for i=1,100 do if not _G.UpA then break end pcall(function() game:GetService("ReplicatedStorage").Network.Client.UpgradeBrainrot:InvokeServer(tostring(i)) end) end task.wait(0.01) end end })
+UpTab:CreateInput({ Name = "Plot Number (1-100)", PlaceholderText = "1", Flag = "Plot_Input", Callback = function(T) Config.SelectedPlot = T end })
+UpTab:CreateToggle({ Name = "Upgrade Selected Plot", Flag = "UpSingle_Toggle", Callback = function(V) _G.UpS = V while _G.UpS do pcall(function() game:GetService("ReplicatedStorage").Network.Client.UpgradeBrainrot:InvokeServer(Config.SelectedPlot) end) task.wait(0.01) end end })
+UpTab:CreateToggle({ Name = "Upgrade ALL Plots", Flag = "UpAll_Toggle", Callback = function(V) _G.UpA = V while _G.UpA do for i=1,100 do if not _G.UpA then break end pcall(function() game:GetService("ReplicatedStorage").Network.Client.UpgradeBrainrot:InvokeServer(tostring(i)) end) end task.wait(0.01) end end })
 
 -- ==========================================
 -- [[ Tab 4: Misc ]]
 -- ==========================================
 local MiscTab = Window:CreateTab("Misc", 4483362458)
 
+MiscTab:CreateSection("Safety")
+MiscTab:CreateToggle({
+   Name = "Anti-AFK (กันหลุด)",
+   Flag = "AntiAFK_Toggle",
+   Callback = function(Value)
+      _G.AntiAFK = Value
+      if Value then
+         game:GetService("Players").LocalPlayer.Idled:Connect(function()
+            if _G.AntiAFK then
+               game:GetService("VirtualUser"):Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+               task.wait(1)
+               game:GetService("VirtualUser"):Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+            end
+         end)
+      end
+   end,
+})
+
 MiscTab:CreateSection("Automation")
+
+-- [[ เพิ่มระบบ Auto Rebirth ตามคำขอ ]]
+MiscTab:CreateToggle({
+    Name = "Auto Rebirth",
+    Flag = "AutoRebirth_Toggle",
+    Callback = function(Value)
+       _G.AutoRebirth = Value
+       while _G.AutoRebirth do
+          pcall(function() 
+             game:GetService("ReplicatedStorage").Network.Client.Rebirth:InvokeServer() 
+          end)
+          task.wait(1)
+       end
+    end,
+})
+
 MiscTab:CreateToggle({
    Name = "Auto Equip Best Entities",
+   Flag = "AutoEquip_Toggle",
    Callback = function(V) _G.Eq = V while _G.Eq do pcall(function() game:GetService("ReplicatedStorage").Network.Client.EquipBestEntities:InvokeServer() end) task.wait(1) end end,
 })
 
 MiscTab:CreateSection("Sell System")
-MiscTab:CreateToggle({ Name = "Auto Sell (True)", Callback = function(V) _G.ST = V while _G.ST do pcall(function() game:GetService("ReplicatedStorage").Network.Client.SellAllEntities:InvokeServer(true) end) task.wait(1) end end })
-MiscTab:CreateToggle({ Name = "Auto Sell (False)", Callback = function(V) _G.SF = V while _G.SF do pcall(function() game:GetService("ReplicatedStorage").Network.Client.SellAllEntities:InvokeServer(false) end) task.wait(1) end end })
+MiscTab:CreateToggle({ Name = "Auto Sell (True)", Flag = "SellT_Toggle", Callback = function(V) _G.ST = V while _G.ST do pcall(function() game:GetService("ReplicatedStorage").Network.Client.SellAllEntities:InvokeServer(true) end) task.wait(1) end end })
+MiscTab:CreateToggle({ Name = "Auto Sell (False)", Flag = "SellF_Toggle", Callback = function(V) _G.SF = V while _G.SF do pcall(function() game:GetService("ReplicatedStorage").Network.Client.SellAllEntities:InvokeServer(false) end) task.wait(1) end end })
 
-Rayfield:Notify({Title = "V8.2 Full Version", Content = "รีเช็คครบทุกฟังก์ชันแล้วครับ พร้อมใช้งาน!", Duration = 5})
+-- [[ โหลด Config และ แจ้งเตือน ]]
+Rayfield:LoadConfiguration()
+Rayfield:Notify({Title = "V8.9 Fully Verified", Content = "เพิ่มระบบ Rebirth, Anti-AFK และระบบ Save ครบถ้วนครับ!", Duration = 5})
