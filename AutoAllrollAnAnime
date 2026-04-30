@@ -1,9 +1,9 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "MonHub | Block Master V7.5",
-   LoadingTitle = "Full System Integration...",
-   LoadingSubtitle = "Waterfall & Manual Roll Ready",
+   Name = "MonHub | Block Master V7.6",
+   LoadingTitle = "Turbo System Loading...",
+   LoadingSubtitle = "Maximum Scanning Speed",
    ConfigurationSaving = { Enabled = false }
 })
 
@@ -35,7 +35,7 @@ StatusFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 StatusFrame.BackgroundTransparency = 0.3
 StatusFrame.Position = UDim2.new(0, 10, 0, 10)
 StatusFrame.Size = UDim2.new(0, 280, 0, 80)
-StatusFrame.Visible = false -- จะเปิดเมื่อเปิดใช้งาน Smart Roll
+StatusFrame.Visible = false
 
 local MainStatus = Instance.new("TextLabel", StatusFrame)
 MainStatus.Size = UDim2.new(1, 0, 0, 40)
@@ -49,20 +49,20 @@ local ScanStatus = Instance.new("TextLabel", StatusFrame)
 ScanStatus.Position = UDim2.new(0, 0, 0, 40)
 ScanStatus.Size = UDim2.new(1, 0, 0, 30)
 ScanStatus.Font = Enum.Font.Gotham
-ScanStatus.TextColor3 = Color3.fromRGB(200, 200, 200)
+ScanStatus.TextColor3 = Color3.fromRGB(0, 255, 255)
 ScanStatus.TextSize = 12
 ScanStatus.BackgroundTransparency = 1
-ScanStatus.Text = "Waiting..."
+ScanStatus.Text = "Turbo Scanning..."
 
 -- ==========================================
 -- [[ Tab 1: Roll & Buy ]]
 -- ==========================================
 local MainTab = Window:CreateTab("Roll & Buy", 4483362458)
 
--- 1.1 Smart Waterfall Roll
-MainTab:CreateSection("Smart Waterfall Roll (Auto Best)")
+-- 1.1 Smart Waterfall Roll (Turbo Mode)
+MainTab:CreateSection("Turbo Smart Roll")
 MainTab:CreateToggle({
-   Name = "Enable Smart Waterfall",
+   Name = "Enable Turbo Smart Roll",
    CurrentValue = false,
    Callback = function(Value)
       _G.SmartRollActive = Value
@@ -82,16 +82,16 @@ MainTab:CreateToggle({
 
             local bestFound = "None"
             
+            -- [[ Turbo Scan Loop - No Wait inside ]]
             for _, blockName in ipairs(PriorityList) do
                if not _G.SmartRollActive then break end
-               ScanStatus.Text = "🔍 Scanning: " .. blockName
                
                local isAvailable = false
                if inventory then
                   local uiItem = inventory:FindFirstChild(blockName)
                   if uiItem then
                      local lockOverlay = uiItem:FindFirstChild("Locked") 
-                     if uiItem.Visible == true and (not lockOverlay or lockOverlay.Visible == false) then
+                     if uiItem.Visible == true and (not lockOverlay or (lockOverlay and lockOverlay.Visible == false)) then
                         isAvailable = true
                      end
                   end
@@ -103,29 +103,27 @@ MainTab:CreateToggle({
                      game:GetService("ReplicatedStorage").Network.Client.RollBlock:InvokeServer(blockName)
                      game:GetService("ReplicatedStorage").Network.Client.ToggleAutoRoll:FireServer(true)
                   end)
-                  break
+                  break -- เจอแล้วหยุดสแกนทันที
                end
-               task.wait(0.01) -- เพื่อให้เห็นการ Scan แบบ Real-time
             end
-            MainStatus.Text = "✅ Locked: " .. bestFound
-            task.wait(0.1)
+            
+            MainStatus.Text = "🚀 Locked: " .. bestFound
+            ScanStatus.Text = "Last Scan: " .. os.date("%X")
+            task.wait(0.01) -- วนรอบใหม่แทบจะทันที
          end
       end)
    end,
 })
 
--- 1.2 Manual Roll (สุ่มแบบปกติ)
-MainTab:CreateSection("Manual Roll (Normal)")
+-- 1.2 Manual Roll (Normal)
+MainTab:CreateSection("Manual Roll")
 MainTab:CreateDropdown({
-   Name = "Select Block to Roll",
+   Name = "Select Block",
    Options = PriorityList,
-   CurrentOption = "",
-   MultipleOptions = false,
    Callback = function(Option) Config.ManualTarget = Option[1] end,
 })
 MainTab:CreateToggle({
    Name = "Auto Roll Manual",
-   CurrentValue = false,
    Callback = function(Value)
       _G.ManualRoll = Value
       while _G.ManualRoll do
@@ -178,4 +176,4 @@ MiscTab:CreateToggle({ Name = "Auto Equip Best", Callback = function(V) _G.Eq = 
 MiscTab:CreateToggle({ Name = "Auto Sell (True)", Callback = function(V) _G.ST = V while _G.ST do pcall(function() game:GetService("ReplicatedStorage").Network.Client.SellAllEntities:InvokeServer(true) end) task.wait(1) end end })
 MiscTab:CreateToggle({ Name = "Auto Sell (False)", Callback = function(V) _G.SF = V while _G.SF do pcall(function() game:GetService("ReplicatedStorage").Network.Client.SellAllEntities:InvokeServer(false) end) task.wait(1) end end })
 
-Rayfield:Notify({Title = "V7.5 Loaded", Content = "Waterfall + Manual Systems Active!", Duration = 5})
+Rayfield:Notify({Title = "V7.6 Loaded", Content = "Turbo Waterfall Active!", Duration = 3})
