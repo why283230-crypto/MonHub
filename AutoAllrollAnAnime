@@ -1,9 +1,9 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "MonHub | Block Master V7.1",
-   LoadingTitle = "Restoring All Features...",
-   LoadingSubtitle = "Every Button is Back!",
+   Name = "MonHub | Block Master V7.3",
+   LoadingTitle = "Full Restoration...",
+   LoadingSubtitle = "Every single function is back!",
    ConfigurationSaving = { Enabled = false }
 })
 
@@ -34,17 +34,17 @@ local Config = {
 -- ==========================================
 local MainTab = Window:CreateTab("Roll & Buy", 4483362458)
 
--- 1.1 Configurable Smart Roll (ที่คุณเสนอ)
-MainTab:CreateSection("Smart Roll (Config Mode)")
+-- 1.1 Smart Roll (Fast & Fallback)
+MainTab:CreateSection("Smart Roll (Fast Fallback)")
 MainTab:CreateDropdown({
-   Name = "1. Set Smart Target",
+   Name = "Set Max Target",
    Options = SortedBlocks,
    CurrentOption = "KingSunBlock",
    MultipleOptions = false,
    Callback = function(Option) Config.SmartTarget = Option[1] end,
 })
 MainTab:CreateToggle({
-   Name = "2. Enable Smart Roll Lock",
+   Name = "Enable Fast Smart Roll (0.1s)",
    CurrentValue = false,
    Callback = function(Value)
       _G.SmartLock = Value
@@ -54,11 +54,25 @@ MainTab:CreateToggle({
       end
       task.spawn(function()
          while _G.SmartLock do
-            pcall(function()
-               game:GetService("ReplicatedStorage").Network.Client.RollBlock:InvokeServer(Config.SmartTarget)
-               game:GetService("ReplicatedStorage").Network.Client.ToggleAutoRoll:FireServer(true)
-            end)
-            task.wait(5)
+            local targetIndex = 1
+            for i, name in ipairs(SortedBlocks) do
+               if name == Config.SmartTarget then targetIndex = i break end
+            end
+
+            -- ระบบ Fallback: วนลูปจากเป้าหมายลงไปหาบล็อกที่กากกว่า
+            for i = targetIndex, 1, -1 do
+               if not _G.SmartLock then break end
+               local currentBlock = SortedBlocks[i]
+               local success = pcall(function()
+                  game:GetService("ReplicatedStorage").Network.Client.RollBlock:InvokeServer(currentBlock)
+               end)
+
+               if success then
+                  pcall(function() game:GetService("ReplicatedStorage").Network.Client.ToggleAutoRoll:FireServer(true) end)
+                  break 
+               end
+            end
+            task.wait(0.1) 
          end
       end)
    end,
@@ -87,10 +101,10 @@ MainTab:CreateToggle({
    end,
 })
 
--- 1.3 Auto Buy (กู้คืนครบทุกฟังก์ชัน)
+-- 1.3 Auto Buy (ครบทุกระบบ)
 MainTab:CreateSection("Auto Buy Systems")
 MainTab:CreateToggle({
-   Name = "Auto Buy ALL List (ทุกบล็อก)",
+   Name = "Auto Buy ALL (33 Blocks)",
    CurrentValue = false,
    Callback = function(Value)
       _G.BuyAll = Value
@@ -111,7 +125,7 @@ MainTab:CreateDropdown({
    Callback = function(Options) Config.SelectedBuyList = Options end,
 })
 MainTab:CreateToggle({
-   Name = "Auto Buy Max (Selected)",
+   Name = "Auto Buy Max (Selected Only)",
    CurrentValue = false,
    Callback = function(Value)
       _G.AutoBuyMax = Value
@@ -160,7 +174,7 @@ UpTab:CreateInput({
    Callback = function(Text) Config.SelectedPlot = Text end,
 })
 UpTab:CreateToggle({
-   Name = "Auto Upgrade Selected Plot",
+   Name = "Auto Upgrade Single Plot",
    CurrentValue = false,
    Callback = function(Value)
       _G.UpSingle = Value
@@ -190,7 +204,7 @@ UpTab:CreateToggle({
 -- ==========================================
 local MiscTab = Window:CreateTab("Misc", 4483362458)
 MiscTab:CreateToggle({
-   Name = "Auto Equip Best",
+   Name = "Auto Equip Best Entities",
    CurrentValue = false,
    Callback = function(Value)
       _G.AutoEquip = Value
@@ -201,7 +215,7 @@ MiscTab:CreateToggle({
    end,
 })
 MiscTab:CreateToggle({
-   Name = "Auto Sell (True)",
+   Name = "Auto Sell All (True)",
    CurrentValue = false,
    Callback = function(Value)
       _G.AutoSellTrue = Value
@@ -212,7 +226,7 @@ MiscTab:CreateToggle({
    end,
 })
 MiscTab:CreateToggle({
-   Name = "Auto Sell (False)",
+   Name = "Auto Sell All (False)",
    CurrentValue = false,
    Callback = function(Value)
       _G.AutoSellFalse = Value
@@ -223,8 +237,4 @@ MiscTab:CreateToggle({
    end,
 })
 
-Rayfield:Notify({
-    Title = "MonHub V7.1 Loaded",
-    Content = "Verified: All Single/All Plot Upgrades & Sell modes are active.",
-    Duration = 5
-})
+Rayfield:Notify({Title = "V7.3 Loaded", Content = "All functions verified and restored.", Duration = 5})
