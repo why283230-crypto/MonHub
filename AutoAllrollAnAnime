@@ -1,0 +1,238 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "MonHub | Block Master V5.7",
+   LoadingTitle = "Deep Focus System Loading...",
+   LoadingSubtitle = "Priority: 100% | Best -> Worst",
+   ConfigurationSaving = { Enabled = false }
+})
+
+-- [[ DATA: Sorted Blocks (Pinnacle is Top) ]]
+local SortedBlocks = {
+    "CommonBlock", "UncommonBlock", "RareBlock", "EpicBlock", "LegendaryBlock",
+    "MythicBlock", "GalaxyBlock", "QuantumBlock", "AscendantBlock", "DevilBlock",
+    "HeavenlyBlock", "MagicBlock", "BrambleBlock", "TimeBenderBlock", "InfinityBlock",
+    "KingSunBlock", "OuroborosBlock", "MoltenCoreBlock", "ToxicReactorBlock", "KingsMantleBlock",
+    "TheEndBlock", "AetherialBlock", "RadiantBlock", "CelestialEmperorBlock", "PhantomBlock",
+    "AnomalyBlock", "VercaBlock", "VortexBlock", "BloodcodeBlock", "DoomBlock",
+    "HellcoreBlock", "VerdictBlock", "PinnacleBlock"
+}
+
+local PetEggs = { "Basic", "Coconut", "Crocodile", "Yeti", "Cupcake", "GoldenBasic" }
+
+-- State Variables
+local SelectedRoll = ""
+local SelectedBuyList = {}
+local SelectedPlot = "1"
+local SelectedEgg = ""
+
+-- ==========================================
+-- [[ Tab 1: Roll & Buy ]]
+-- ==========================================
+local MainTab = Window:CreateTab("Roll & Buy", 4483362458)
+
+-- 1.1 Deep Focus Roll (ระบบใหม่ที่คุณต้องการ)
+MainTab:CreateSection("Smart Focus Roll (จี้อันเทพจนหมด)")
+MainTab:CreateToggle({
+   Name = "Smart Focus (Best to Worst)",
+   CurrentValue = false,
+   Callback = function(Value)
+      _G.DeepFocus = Value
+      while _G.DeepFocus do
+         local actionTaken = false
+         
+         -- เช็กจากอันสุดท้าย (Pinnacle) ย้อนกลับมาอันแรก (Common)
+         for i = #SortedBlocks, 1, -1 do
+            if not _G.DeepFocus then break end
+            
+            local blockName = SortedBlocks[i]
+            local hasBlock = game:GetService("Players").LocalPlayer.Blocks:FindFirstChild(blockName)
+            
+            if hasBlock then
+               -- พยายาม Roll อันที่เทพที่สุดก่อน
+               local success = pcall(function()
+                  game:GetService("ReplicatedStorage").Network.Client.RollBlock:InvokeServer(blockName)
+               end)
+               
+               if success then
+                  actionTaken = true
+                  -- สำคัญ: ถ้าอันบนสุดยังกดได้ ให้ 'break' ลูป 'for' 
+                  -- เพื่อกลับไปเริ่มเช็กจาก Pinnacle ใหม่เสมอ (ล็อคเป้าอันเดิม)
+                  task.wait(0.05)
+                  break 
+               end
+            end
+         end
+         
+         -- ถ้ากวาดหมดแล้วแต่กดไม่ได้เลย (เช่น เงินหมด/คูลดาวน์) ให้พักแป๊บนึง
+         if not actionTaken then task.wait(0.5) end
+         task.wait(0.01)
+      end
+   end,
+})
+
+-- 1.2 Manual Roll
+MainTab:CreateSection("Manual Roll")
+MainTab:CreateDropdown({
+   Name = "Select Block to Roll",
+   Options = SortedBlocks,
+   CurrentOption = "",
+   MultipleOptions = false,
+   Callback = function(Option) SelectedRoll = Option[1] end,
+})
+MainTab:CreateToggle({
+   Name = "Auto Roll Selected",
+   CurrentValue = false,
+   Callback = function(Value)
+      _G.AutoRoll = Value
+      while _G.AutoRoll do
+         if SelectedRoll ~= "" then
+            pcall(function() game:GetService("ReplicatedStorage").Network.Client.RollBlock:InvokeServer(SelectedRoll) end)
+         end
+         task.wait(0.05)
+      end
+   end,
+})
+
+-- 1.3 Auto Buy
+MainTab:CreateSection("Auto Buy")
+MainTab:CreateDropdown({
+   Name = "Select Blocks (Multi-Buy)",
+   Options = SortedBlocks,
+   CurrentOption = {},
+   MultipleOptions = true,
+   Callback = function(Options) SelectedBuyList = Options end,
+})
+MainTab:CreateToggle({
+   Name = "Auto Buy Max (Selected)",
+   CurrentValue = false,
+   Callback = function(Value)
+      _G.AutoBuyMax = Value
+      while _G.AutoBuyMax do
+         for _, itemName in pairs(SelectedBuyList) do
+            if not _G.AutoBuyMax then break end
+            pcall(function() game:GetService("ReplicatedStorage").Network.Client.PurchaseMaxItems:InvokeServer(itemName, 999) end)
+         end
+         task.wait(0.05)
+      end
+   end,
+})
+MainTab:CreateToggle({
+   Name = "Auto Buy ALL List",
+   CurrentValue = false,
+   Callback = function(Value)
+      _G.BuyAllList = Value
+      while _G.BuyAllList do
+         for _, itemName in pairs(SortedBlocks) do
+            if not _G.BuyAllList then break end
+            pcall(function() game:GetService("ReplicatedStorage").Network.Client.PurchaseMaxItems:InvokeServer(itemName, 999) end)
+         end
+         task.wait(0.05)
+      end
+   end,
+})
+
+-- ==========================================
+-- [[ Tab 2: Pets ]]
+-- ==========================================
+local PetTab = Window:CreateTab("Pets", 4483362458)
+PetTab:CreateDropdown({
+   Name = "Select Egg",
+   Options = PetEggs,
+   CurrentOption = "",
+   MultipleOptions = false,
+   Callback = function(Option) SelectedEgg = Option[1] end,
+})
+PetTab:CreateToggle({
+   Name = "Auto Hatch (0.1s)",
+   CurrentValue = false,
+   Callback = function(Value)
+      _G.AutoHatch = Value
+      while _G.AutoHatch do
+         if SelectedEgg ~= "" then
+            pcall(function() game:GetService("ReplicatedStorage").Network.Client.Hatch:InvokeServer(SelectedEgg, 1) end)
+         end
+         task.wait(0.1)
+      end
+   end,
+})
+
+-- ==========================================
+-- [[ Tab 3: Upgrades ]]
+-- ==========================================
+local UpTab = Window:CreateTab("Upgrades", 4483362458)
+UpTab:CreateInput({
+   Name = "Plot Number (1-100)",
+   PlaceholderText = "1",
+   Callback = function(Text) SelectedPlot = Text end,
+})
+UpTab:CreateToggle({
+   Name = "Auto Upgrade Plot",
+   CurrentValue = false,
+   Callback = function(Value)
+      _G.AutoUpAura = Value
+      while _G.AutoUpAura do
+         pcall(function() game:GetService("ReplicatedStorage").Network.Client.UpgradeBrainrot:InvokeServer(SelectedPlot) end)
+         task.wait(0.1)
+      end
+   end,
+})
+UpTab:CreateToggle({
+   Name = "Auto Upgrade ALL Plots",
+   CurrentValue = false,
+   Callback = function(Value)
+      _G.UpAllPlots = Value
+      while _G.UpAllPlots do
+         for i = 1, 100 do
+            if not _G.UpAllPlots then break end
+            pcall(function() game:GetService("ReplicatedStorage").Network.Client.UpgradeBrainrot:InvokeServer(tostring(i)) end)
+         end
+         task.wait(0.1)
+      end
+   end,
+})
+
+-- ==========================================
+-- [[ Tab 4: Misc ]]
+-- ==========================================
+local MiscTab = Window:CreateTab("Misc", 4483362458)
+MiscTab:CreateToggle({
+   Name = "Auto Equip Best",
+   CurrentValue = false,
+   Callback = function(Value)
+      _G.AutoEquip = Value
+      while _G.AutoEquip do
+         pcall(function() game:GetService("ReplicatedStorage").Network.Client.EquipBestEntities:InvokeServer() end)
+         task.wait(1)
+      end
+   end,
+})
+MiscTab:CreateToggle({
+   Name = "Auto Sell All (True)",
+   CurrentValue = false,
+   Callback = function(Value)
+      _G.AutoSellTrue = Value
+      while _G.AutoSellTrue do
+         pcall(function() game:GetService("ReplicatedStorage").Network.Client.SellAllEntities:InvokeServer(true) end)
+         task.wait(1)
+      end
+   end,
+})
+MiscTab:CreateToggle({
+   Name = "Auto Sell All (False)",
+   CurrentValue = false,
+   Callback = function(Value)
+      _G.AutoSellFalse = Value
+      while _G.AutoSellFalse do
+         pcall(function() game:GetService("ReplicatedStorage").Network.Client.SellAllEntities:InvokeServer(false) end)
+         task.wait(1)
+      end
+   end,
+})
+
+Rayfield:Notify({
+    Title = "Full Script Loaded",
+    Content = "Verified: Deep Focus Roll & All Systems Active!",
+    Duration = 5
+})
+  
