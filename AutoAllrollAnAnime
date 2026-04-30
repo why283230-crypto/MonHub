@@ -1,13 +1,13 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "MonHub | Block Master V6.4",
-   LoadingTitle = "Full System Restoration...",
-   LoadingSubtitle = "Every Feature is Back! | Speed: 0.05s",
+   Name = "MonHub | Block Master V6.5",
+   LoadingTitle = "Scanning UI Inventory...",
+   LoadingSubtitle = "Location: PlayerGui.Main.DiceContainer",
    ConfigurationSaving = { Enabled = false }
 })
 
--- [[ DATA LISTS ]]
+-- [[ DATA: 33 Blocks ]]
 local SortedBlocks = {
     "CommonBlock", "UncommonBlock", "RareBlock", "EpicBlock", "LegendaryBlock",
     "MythicBlock", "GalaxyBlock", "QuantumBlock", "AscendantBlock", "DevilBlock",
@@ -32,10 +32,10 @@ local CurrentLock = nil
 -- ==========================================
 local MainTab = Window:CreateTab("Roll & Buy", 4483362458)
 
--- 1.1 Smart Focus (ล็อคอันที่เทพที่สุดในตัวจริง)
+-- 1.1 SMART FOCUS (ล็อคตามตำแหน่ง UI ที่คุณเจอมา)
 MainTab:CreateSection("Smart Focus Roll")
 MainTab:CreateToggle({
-   Name = "Smart Roll (Lock Inventory Best)",
+   Name = "Smart Roll (UI Inventory Scan)",
    CurrentValue = false,
    Callback = function(Value)
       _G.SmartLock = Value
@@ -44,33 +44,38 @@ MainTab:CreateToggle({
          CurrentLock = nil
          return
       end
+      
       task.spawn(function()
          while _G.SmartLock do
-            local Player = game:GetService("Players").LocalPlayer
             local bestInInv = nil
+            local Player = game:GetService("Players").LocalPlayer
             
-            -- สแกนจากอันที่เทพที่สุด (Pinnacle) ย้อนลงมา
-            for i = #SortedBlocks, 1, -1 do
-               local target = SortedBlocks[i]
-               -- เช็คทุกจุดที่เกมมักจะเก็บข้อมูลการปลดล็อค
-               local hasData = (Player:FindFirstChild("Blocks") and Player.Blocks:FindFirstChild(target)) or 
-                               (Player:GetAttribute(target) ~= nil) or
-                               (Player:FindFirstChild("leaderstats") and Player.leaderstats:FindFirstChild(target))
-               
-               if hasData then
-                  bestInInv = target
-                  break
+            -- ตำแหน่งที่คุณบอกมา
+            local InventoryPath = Player.PlayerGui:FindFirstChild("Main") 
+               and Player.PlayerGui.Main:FindFirstChild("DiceContainer")
+               and Player.PlayerGui.Main.DiceContainer:FindFirstChild("Inventory")
+               and Player.PlayerGui.Main.DiceContainer.Inventory:FindFirstChild("Scroll")
+
+            if InventoryPath then
+               -- สแกนจากอันที่เทพที่สุดย้อนลงมา
+               for i = #SortedBlocks, 1, -1 do
+                  local target = SortedBlocks[i]
+                  -- เช็คว่ามีชื่อลูกเต๋าอยู่ใน Scroll หรือไม่
+                  if InventoryPath:FindFirstChild(target) then
+                     bestInInv = target
+                     break
+                  end
                end
             end
 
-            -- ถ้าเจอ KingsunBlock หรืออันที่เทพที่สุด และยังไม่ได้ล็อค
+            -- ถ้าเจอ KingsunBlock หรืออันที่ดีที่สุดใน UI และยังไม่ได้ล็อค
             if bestInInv and bestInInv ~= CurrentLock then
                CurrentLock = bestInInv
                pcall(function()
                   game:GetService("ReplicatedStorage").Network.Client.RollBlock:InvokeServer(bestInInv)
                   game:GetService("ReplicatedStorage").Network.Client.ToggleAutoRoll:FireServer(true)
                end)
-               Rayfield:Notify({Title = "Target Locked!", Content = "ล็อคเป้าหมายไปที่: " .. bestInInv, Duration = 3})
+               Rayfield:Notify({Title = "Target Locked!", Content = "ล็อคเป้าหมาย UI: " .. bestInInv, Duration = 3})
             end
             task.wait(2)
          end
@@ -101,10 +106,10 @@ MainTab:CreateToggle({
    end,
 })
 
--- 1.3 Auto Buy (ตรวจสอบแล้ว: อยู่ครบ)
+-- 1.3 Auto Buy (ระบบเหมาทุกอย่างและเลือกซื้อ อยู่ครบ)
 MainTab:CreateSection("Auto Buy Systems")
 MainTab:CreateToggle({
-   Name = "Auto Buy ALL List (ซื้อทุกบล็อก)",
+   Name = "Auto Buy ALL List (ทุกบล็อก)",
    CurrentValue = false,
    Callback = function(Value)
       _G.BuyAll = Value
@@ -144,7 +149,7 @@ MainTab:CreateToggle({
 -- ==========================================
 local PetTab = Window:CreateTab("Pets", 4483362458)
 PetTab:CreateDropdown({
-   Name = "Select Egg (GoldenBasic/Crocodile)",
+   Name = "Select Egg (Crocodile/GoldenBasic)",
    Options = PetEggs,
    CurrentOption = "",
    MultipleOptions = false,
@@ -235,10 +240,4 @@ MiscTab:CreateToggle({
          task.wait(1)
       end
    end,
-})
-
-Rayfield:Notify({
-    Title = "Restoration Complete",
-    Content = "Verified: All 7 major functions are active!",
-    Duration = 5
 })
