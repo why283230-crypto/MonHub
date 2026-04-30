@@ -1,13 +1,13 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "MonHub | Block Master V8.4",
-   LoadingTitle = "Saving System Integration...",
-   LoadingSubtitle = "Now with Config Support!",
+   Name = "MonHub | Block Master V8.5",
+   LoadingTitle = "Fixing Missing Tabs...",
+   LoadingSubtitle = "Everything is back now!",
    ConfigurationSaving = {
-      Enabled = true, -- เปิดระบบบันทึกค่า
-      FolderName = "MonHubConfigs", -- ชื่อโฟลเดอร์ใน Workspace
-      FileName = "BlockMaster_Save" -- ชื่อไฟล์เซฟ
+      Enabled = true,
+      FolderName = "MonHubConfigs",
+      FileName = "BlockMaster_V85"
    }
 })
 
@@ -67,9 +67,8 @@ local RollTab = Window:CreateTab("Roll Systems", 4483362458)
 RollTab:CreateSection("Smart Waterfall (Auto Best)")
 RollTab:CreateToggle({
    Name = "Enable Smart Waterfall",
-   Info = "Scan UI and auto roll best block available",
    CurrentValue = false,
-   Flag = "SmartWaterfall_T", -- ใช้ Flag เพื่อบันทึกค่า
+   Flag = "Waterfall_T",
    Callback = function(Value)
       _G.SmartRollActive = Value
       StatusFrame.Visible = Value
@@ -113,12 +112,11 @@ RollTab:CreateSection("Manual Roll")
 RollTab:CreateDropdown({
    Name = "Select Block",
    Options = NormalList,
-   Flag = "ManualBlock_D",
+   Flag = "ManualRoll_D",
    Callback = function(Option) Config.ManualTarget = Option[1] end,
 })
 RollTab:CreateToggle({
    Name = "Start Manual Roll",
-   CurrentValue = false,
    Flag = "ManualRoll_T",
    Callback = function(Value)
       _G.ManualRoll = Value
@@ -156,17 +154,17 @@ BuyTab:CreateToggle({
 local UpTab = Window:CreateTab("Pets & Upgrades", 4483362458)
 UpTab:CreateDropdown({ Name = "Select Egg", Options = PetEggs, Flag = "Egg_D", Callback = function(O) Config.SelectedEgg = O[1] end })
 UpTab:CreateToggle({ Name = "Start Hatching", Flag = "Hatch_T", Callback = function(V) _G.Hatch = V while _G.Hatch do if Config.SelectedEgg ~= "" then pcall(function() game:GetService("ReplicatedStorage").Network.Client.Hatch:InvokeServer(Config.SelectedEgg, 1) end) end task.wait(0.1) end end })
-
 UpTab:CreateSection("Turbo Upgrade (0.01s)")
 UpTab:CreateInput({ Name = "Plot Number", Flag = "Plot_I", Callback = function(T) Config.SelectedPlot = T end })
 UpTab:CreateToggle({ Name = "Upgrade Selected Plot", Flag = "UpS_T", Callback = function(V) _G.UpS = V while _G.UpS do pcall(function() game:GetService("ReplicatedStorage").Network.Client.UpgradeBrainrot:InvokeServer(Config.SelectedPlot) end) task.wait(0.01) end end })
 UpTab:CreateToggle({ Name = "Upgrade ALL Plots", Flag = "UpA_T", Callback = function(V) _G.UpA = V while _G.UpA do for i=1,100 do if not _G.UpA then break end pcall(function() game:GetService("ReplicatedStorage").Network.Client.UpgradeBrainrot:InvokeServer(tostring(i)) end) end task.wait(0.01) end end })
 
 -- ==========================================
--- [[ Tab 4: Misc ]]
+-- [[ Tab 4: Misc - กลับมาแล้วครับ! ]]
 -- ==========================================
 local MiscTab = Window:CreateTab("Misc", 4483362458)
 
+MiscTab:CreateSection("Automation")
 MiscTab:CreateToggle({
    Name = "Auto Rebirth",
    Flag = "Rebirth_T",
@@ -179,9 +177,21 @@ MiscTab:CreateToggle({
    end,
 })
 
-MiscTab:CreateToggle({ Name = "Auto Equip Best Entities", Flag = "Equip_T", Callback = function(V) _G.Eq = V while _G.Eq do pcall(function() game:GetService("ReplicatedStorage").Network.Client.EquipBestEntities:InvokeServer() end) task.wait(1) end end })
+MiscTab:CreateToggle({
+   Name = "Auto Equip Best Entities",
+   Flag = "Equip_T",
+   Callback = function(V) 
+      _G.Eq = V 
+      while _G.Eq do 
+         pcall(function() game:GetService("ReplicatedStorage").Network.Client.EquipBestEntities:InvokeServer() end) 
+         task.wait(1) 
+      end 
+   end 
+})
+
+MiscTab:CreateSection("Sell System")
 MiscTab:CreateToggle({ Name = "Auto Sell (True)", Flag = "SellT_T", Callback = function(V) _G.ST = V while _G.ST do pcall(function() game:GetService("ReplicatedStorage").Network.Client.SellAllEntities:InvokeServer(true) end) task.wait(1) end end })
 MiscTab:CreateToggle({ Name = "Auto Sell (False)", Flag = "SellF_T", Callback = function(V) _G.SF = V while _G.SF do pcall(function() game:GetService("ReplicatedStorage").Network.Client.SellAllEntities:InvokeServer(false) end) task.wait(1) end end })
 
-Rayfield:LoadConfiguration() -- โหลดค่าที่บันทึกไว้อัตโนมัติเมื่อรันสคริปต์
-Rayfield:Notify({Title = "V8.4 Config Ready", Content = "Your settings will now be saved!", Duration = 5})
+Rayfield:LoadConfiguration()
+Rayfield:Notify({Title = "V8.5 Final Fix", Content = "Misc Tab is back! Settings saved.", Duration = 5})
