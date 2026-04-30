@@ -1,14 +1,14 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "MonHub | Block Master V7.8",
-   LoadingTitle = "Final System Restoration...",
-   LoadingSubtitle = "Auto Equip & All Features Back!",
+   Name = "MonHub | Block Master V8.2",
+   LoadingTitle = "Ultimate System Restoration...",
+   LoadingSubtitle = "Every Function Is Now Here",
    ConfigurationSaving = { Enabled = false }
 })
 
 -- [[ DATA LISTS ]]
-local PriorityList = {
+local WaterfallList = { -- ลิสต์สำหรับ Smart Roll (เทพ -> กาก)
     "PinnacleBlock", "VerdictBlock", "HellcoreBlock", "DoomBlock", "BloodcodeBlock",
     "VortexBlock", "VercaBlock", "AnomalyBlock", "PhantomBlock", "CelestialEmperorBlock",
     "RadiantBlock", "AetherialBlock", "TheEndBlock", "KingsMantleBlock", "ToxicReactorBlock",
@@ -16,6 +16,16 @@ local PriorityList = {
     "BrambleBlock", "MagicBlock", "HeavenlyBlock", "DevilBlock", "AscendantBlock",
     "QuantumBlock", "GalaxyBlock", "MythicBlock", "LegendaryBlock", "EpicBlock",
     "RareBlock", "UncommonBlock", "CommonBlock"
+}
+
+local NormalList = { -- ลิสต์สำหรับ Manual Roll / Auto Buy (กาก -> เทพ)
+    "CommonBlock", "UncommonBlock", "RareBlock", "EpicBlock", "LegendaryBlock",
+    "MythicBlock", "GalaxyBlock", "QuantumBlock", "AscendantBlock", "DevilBlock",
+    "HeavenlyBlock", "MagicBlock", "BrambleBlock", "TimeBenderBlock", "InfinityBlock",
+    "KingSunBlock", "OuroborosBlock", "MoltenCoreBlock", "ToxicReactorBlock", "KingsMantleBlock",
+    "TheEndBlock", "AetherialBlock", "RadiantBlock", "CelestialEmperorBlock", "PhantomBlock",
+    "AnomalyBlock", "VercaBlock", "VortexBlock", "BloodcodeBlock", "DoomBlock",
+    "HellcoreBlock", "VerdictBlock", "PinnacleBlock"
 }
 
 local PetEggs = { "Basic", "Coconut", "Crocodile", "Yeti", "Cupcake", "GoldenBasic" }
@@ -28,61 +38,52 @@ local Config = {
     SelectedPlot = "1"
 }
 
--- [[ UI Overlay System ]]
+-- [[ UI Overlay ]]
 local ScreenGui = Instance.new("ScreenGui", game:GetService("CoreGui"))
 local StatusFrame = Instance.new("Frame", ScreenGui)
-StatusFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-StatusFrame.BackgroundTransparency = 0.3
-StatusFrame.Position = UDim2.new(0, 10, 0, 10)
-StatusFrame.Size = UDim2.new(0, 280, 0, 80)
-StatusFrame.Visible = false
+StatusFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15); StatusFrame.BackgroundTransparency = 0.3;
+StatusFrame.Position = UDim2.new(0, 10, 0, 10); StatusFrame.Size = UDim2.new(0, 280, 0, 80);
+StatusFrame.Visible = false; StatusFrame.BorderSizePixel = 0
 
 local MainStatus = Instance.new("TextLabel", StatusFrame)
-MainStatus.Size = UDim2.new(1, 0, 0, 40)
-MainStatus.Font = Enum.Font.GothamBold
-MainStatus.TextColor3 = Color3.fromRGB(255, 255, 255)
-MainStatus.TextSize = 15
-MainStatus.BackgroundTransparency = 1
-MainStatus.Text = "Status: Idle"
+MainStatus.Size = UDim2.new(1, 0, 0, 40); MainStatus.Font = Enum.Font.GothamBold;
+MainStatus.TextColor3 = Color3.fromRGB(255, 255, 255); MainStatus.TextSize = 15;
+MainStatus.BackgroundTransparency = 1; MainStatus.Text = "Status: Idle"
 
 local ScanStatus = Instance.new("TextLabel", StatusFrame)
-ScanStatus.Position = UDim2.new(0, 0, 0, 40)
-ScanStatus.Size = UDim2.new(1, 0, 0, 30)
-ScanStatus.Font = Enum.Font.Gotham
-ScanStatus.TextColor3 = Color3.fromRGB(0, 255, 255)
-ScanStatus.TextSize = 12
-ScanStatus.BackgroundTransparency = 1
-ScanStatus.Text = "Turbo Scanning..."
+ScanStatus.Position = UDim2.new(0, 0, 0, 40); ScanStatus.Size = UDim2.new(1, 0, 0, 30);
+ScanStatus.Font = Enum.Font.Gotham; ScanStatus.TextColor3 = Color3.fromRGB(0, 255, 255);
+ScanStatus.TextSize = 12; ScanStatus.BackgroundTransparency = 1; ScanStatus.Text = "Waiting..."
 
 -- ==========================================
 -- [[ Tab 1: Roll Systems ]]
 -- ==========================================
 local RollTab = Window:CreateTab("Roll Systems", 4483362458)
 
-RollTab:CreateSection("Turbo Smart Waterfall (Auto Best)")
+RollTab:CreateSection("Smart Waterfall (ระบบลดระดับอัตโนมัติ)")
 RollTab:CreateToggle({
-   Name = "Enable Smart Waterfall",
+   Name = "Enable Smart Waterfall (Auto Best)",
    CurrentValue = false,
    Callback = function(Value)
       _G.SmartRollActive = Value
       StatusFrame.Visible = Value
-      if not Value then
+      if not Value then 
          pcall(function() game:GetService("ReplicatedStorage").Network.Client.ToggleAutoRoll:FireServer(false) end)
-         return
+         return 
       end
       task.spawn(function()
          while _G.SmartRollActive do
             local player = game:GetService("Players").LocalPlayer
-            local inventory = player.PlayerGui:FindFirstChild("Main") and player.PlayerGui.Main:FindFirstChild("DiceContainer") and player.PlayerGui.Main.DiceContainer:FindFirstChild("Inventory") and player.PlayerGui.Main.DiceContainer.Inventory:FindFirstChild("Scroll")
+            local inv = player.PlayerGui:FindFirstChild("Main") and player.PlayerGui.Main:FindFirstChild("DiceContainer") and player.PlayerGui.Main.DiceContainer:FindFirstChild("Inventory") and player.PlayerGui.Main.DiceContainer.Inventory:FindFirstChild("Scroll")
             local bestFound = "None"
-            for _, blockName in ipairs(PriorityList) do
+            for _, blockName in ipairs(WaterfallList) do
                if not _G.SmartRollActive then break end
                local isAvailable = false
-               if inventory then
-                  local uiItem = inventory:FindFirstChild(blockName)
-                  if uiItem then
-                     local lockOverlay = uiItem:FindFirstChild("Locked") 
-                     if uiItem.Visible == true and (not lockOverlay or lockOverlay.Visible == false) then isAvailable = true end
+               if inv then
+                  local uiItem = inv:FindFirstChild(blockName)
+                  if uiItem and uiItem.Visible == true then
+                     local lockOverlay = uiItem:FindFirstChild("Locked")
+                     if not lockOverlay or lockOverlay.Visible == false then isAvailable = true end
                   end
                end
                if isAvailable then
@@ -102,14 +103,14 @@ RollTab:CreateToggle({
    end,
 })
 
-RollTab:CreateSection("Manual Roll (Normal Mode)")
+RollTab:CreateSection("Manual Roll (ระบบสุ่มปกติ)")
 RollTab:CreateDropdown({
    Name = "Select Block",
-   Options = PriorityList,
+   Options = NormalList,
    Callback = function(Option) Config.ManualTarget = Option[1] end,
 })
 RollTab:CreateToggle({
-   Name = "Auto Roll Manual",
+   Name = "Start Manual Roll",
    Callback = function(Value)
       _G.ManualRoll = Value
       while _G.ManualRoll do
@@ -129,12 +130,13 @@ RollTab:CreateToggle({
 -- ==========================================
 local BuyTab = Window:CreateTab("Auto Buy", 4483362458)
 
+BuyTab:CreateSection("ระบบซื้อทั้งหมด")
 BuyTab:CreateToggle({
    Name = "Auto Buy ALL (33 Blocks)",
    Callback = function(V) 
       _G.BAll = V 
       while _G.BAll do 
-         for _, n in pairs(PriorityList) do 
+         for _, n in pairs(WaterfallList) do 
             if not _G.BAll then break end 
             pcall(function() game:GetService("ReplicatedStorage").Network.Client.PurchaseMaxItems:InvokeServer(n, 999) end) 
          end 
@@ -143,19 +145,20 @@ BuyTab:CreateToggle({
    end,
 })
 
+BuyTab:CreateSection("ระบบซื้อเฉพาะที่เลือก")
 BuyTab:CreateDropdown({
-   Name = "Multi-Select Buy (เลือกเอง)",
-   Options = PriorityList,
+   Name = "เลือกบล็อกที่จะซื้อ",
+   Options = NormalList,
    MultipleOptions = true,
    Callback = function(O) Config.SelectedBuyList = O end,
 })
-
 BuyTab:CreateToggle({
-   Name = "Auto Buy Max (Selected)",
+   Name = "Auto Buy Selected Max",
    Callback = function(V) 
       _G.BSel = V 
       while _G.BSel do 
          for _, n in pairs(Config.SelectedBuyList) do 
+            if not _G.BSel then break end
             pcall(function() game:GetService("ReplicatedStorage").Network.Client.PurchaseMaxItems:InvokeServer(n, 999) end) 
          end 
          task.wait(0.1) 
@@ -170,36 +173,26 @@ local UpTab = Window:CreateTab("Pets & Upgrades", 4483362458)
 
 UpTab:CreateSection("Auto Hatch Pets")
 UpTab:CreateDropdown({ Name = "Select Egg", Options = PetEggs, Callback = function(O) Config.SelectedEgg = O[1] end })
-UpTab:CreateToggle({ Name = "Start Auto Hatch", Callback = function(V) _G.Hatch = V while _G.Hatch do if Config.SelectedEgg ~= "" then pcall(function() game:GetService("ReplicatedStorage").Network.Client.Hatch:InvokeServer(Config.SelectedEgg, 1) end) end task.wait(0.1) end end })
+UpTab:CreateToggle({ Name = "Start Hatching (0.1s)", Callback = function(V) _G.Hatch = V while _G.Hatch do if Config.SelectedEgg ~= "" then pcall(function() game:GetService("ReplicatedStorage").Network.Client.Hatch:InvokeServer(Config.SelectedEgg, 1) end) end task.wait(0.1) end end })
 
-UpTab:CreateSection("Auto Upgrade Plots")
+UpTab:CreateSection("Turbo Upgrade System (0.01s)")
 UpTab:CreateInput({ Name = "Plot Number (1-100)", PlaceholderText = "1", Callback = function(T) Config.SelectedPlot = T end })
-UpTab:CreateToggle({ Name = "Upgrade Selected Plot", Callback = function(V) _G.UpS = V while _G.UpS do pcall(function() game:GetService("ReplicatedStorage").Network.Client.UpgradeBrainrot:InvokeServer(Config.SelectedPlot) end) task.wait(0.1) end end })
-UpTab:CreateToggle({ Name = "Upgrade ALL Plots", Callback = function(V) _G.UpA = V while _G.UpA do for i=1,100 do pcall(function() game:GetService("ReplicatedStorage").Network.Client.UpgradeBrainrot:InvokeServer(tostring(i)) end) end task.wait(0.1) end end })
+UpTab:CreateToggle({ Name = "Upgrade Selected Plot", Callback = function(V) _G.UpS = V while _G.UpS do pcall(function() game:GetService("ReplicatedStorage").Network.Client.UpgradeBrainrot:InvokeServer(Config.SelectedPlot) end) task.wait(0.01) end end })
+UpTab:CreateToggle({ Name = "Upgrade ALL Plots", Callback = function(V) _G.UpA = V while _G.UpA do for i=1,100 do if not _G.UpA then break end pcall(function() game:GetService("ReplicatedStorage").Network.Client.UpgradeBrainrot:InvokeServer(tostring(i)) end) end task.wait(0.01) end end })
 
 -- ==========================================
--- [[ Tab 4: Misc & Automation ]]
+-- [[ Tab 4: Misc ]]
 -- ==========================================
 local MiscTab = Window:CreateTab("Misc", 4483362458)
 
-MiscTab:CreateSection("Character Automation")
--- [[ นี่คือปุ่มที่คุณถามถึงครับ กลับมาแล้ว! ]]
+MiscTab:CreateSection("Automation")
 MiscTab:CreateToggle({
    Name = "Auto Equip Best Entities",
-   CurrentValue = false,
-   Callback = function(Value)
-      _G.AutoEquip = Value
-      while _G.AutoEquip do
-         pcall(function() 
-            game:GetService("ReplicatedStorage").Network.Client.EquipBestEntities:InvokeServer() 
-         end)
-         task.wait(1) -- เช็คทุกๆ 1 วินาที
-      end
-   end,
+   Callback = function(V) _G.Eq = V while _G.Eq do pcall(function() game:GetService("ReplicatedStorage").Network.Client.EquipBestEntities:InvokeServer() end) task.wait(1) end end,
 })
 
-MiscTab:CreateSection("Sell Options")
+MiscTab:CreateSection("Sell System")
 MiscTab:CreateToggle({ Name = "Auto Sell (True)", Callback = function(V) _G.ST = V while _G.ST do pcall(function() game:GetService("ReplicatedStorage").Network.Client.SellAllEntities:InvokeServer(true) end) task.wait(1) end end })
 MiscTab:CreateToggle({ Name = "Auto Sell (False)", Callback = function(V) _G.SF = V while _G.SF do pcall(function() game:GetService("ReplicatedStorage").Network.Client.SellAllEntities:InvokeServer(false) end) task.wait(1) end end })
 
-Rayfield:Notify({Title = "V7.8 Complete", Content = "Auto Equip & All Functions verified!", Duration = 5})
+Rayfield:Notify({Title = "V8.2 Full Version", Content = "รีเช็คครบทุกฟังก์ชันแล้วครับ พร้อมใช้งาน!", Duration = 5})
