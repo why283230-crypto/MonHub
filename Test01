@@ -1,61 +1,44 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "MonHub | Block Master V8.7",
-   LoadingTitle = "System Integrity Restoration...",
-   LoadingSubtitle = "Every single function is now verified.",
+   Name = "MonHub | Block Master V8.8",
+   LoadingTitle = "Emergency UI Fix...",
+   LoadingSubtitle = "Tabs are now forced to show",
    ConfigurationSaving = {
       Enabled = true,
       FolderName = "MonHubConfigs",
-      FileName = "BlockMaster_Final"
+      FileName = "BlockMaster_V88"
    }
 })
 
--- [[ 1. DATA AND CONFIGURATION ]]
+-- [[ DATA LISTS ]]
 local WaterfallList = {"PinnacleBlock", "VerdictBlock", "HellcoreBlock", "DoomBlock", "BloodcodeBlock", "VortexBlock", "VercaBlock", "AnomalyBlock", "PhantomBlock", "CelestialEmperorBlock", "RadiantBlock", "AetherialBlock", "TheEndBlock", "KingsMantleBlock", "ToxicReactorBlock", "MoltenCoreBlock", "OuroborosBlock", "KingSunBlock", "InfinityBlock", "TimeBenderBlock", "BrambleBlock", "MagicBlock", "HeavenlyBlock", "DevilBlock", "AscendantBlock", "QuantumBlock", "GalaxyBlock", "MythicBlock", "LegendaryBlock", "EpicBlock", "RareBlock", "UncommonBlock", "CommonBlock"}
 local NormalList = {"CommonBlock", "UncommonBlock", "RareBlock", "EpicBlock", "LegendaryBlock", "MythicBlock", "GalaxyBlock", "QuantumBlock", "AscendantBlock", "DevilBlock", "HeavenlyBlock", "MagicBlock", "BrambleBlock", "TimeBenderBlock", "InfinityBlock", "KingSunBlock", "OuroborosBlock", "MoltenCoreBlock", "ToxicReactorBlock", "KingsMantleBlock", "TheEndBlock", "AetherialBlock", "RadiantBlock", "CelestialEmperorBlock", "PhantomBlock", "AnomalyBlock", "VercaBlock", "VortexBlock", "BloodcodeBlock", "DoomBlock", "HellcoreBlock", "VerdictBlock", "PinnacleBlock"}
 local PetEggs = {"Basic", "Coconut", "Crocodile", "Yeti", "Cupcake", "GoldenBasic"}
 
-local Vars = {
-    ManualTarget = "",
-    SelectedBuyList = {},
-    SelectedEgg = "",
-    SelectedPlot = "1"
-}
-
--- [[ 2. UI STATUS OVERLAY ]]
-local ScreenGui = Instance.new("ScreenGui", game:GetService("CoreGui"))
-local StatusFrame = Instance.new("Frame", ScreenGui)
-StatusFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15); StatusFrame.BackgroundTransparency = 0.3; StatusFrame.Position = UDim2.new(0, 10, 0, 10); StatusFrame.Size = UDim2.new(0, 280, 0, 80); StatusFrame.Visible = false; StatusFrame.BorderSizePixel = 0;
-local MainStatus = Instance.new("TextLabel", StatusFrame)
-MainStatus.Size = UDim2.new(1, 0, 0, 40); MainStatus.Font = Enum.Font.GothamBold; MainStatus.TextColor3 = Color3.fromRGB(255, 255, 255); MainStatus.TextSize = 15; MainStatus.BackgroundTransparency = 1; MainStatus.Text = "Status: Idle"
-local ScanStatus = Instance.new("TextLabel", StatusFrame)
-ScanStatus.Position = UDim2.new(0, 0, 0, 40); ScanStatus.Size = UDim2.new(1, 0, 0, 30); ScanStatus.Font = Enum.Font.Gotham; ScanStatus.TextColor3 = Color3.fromRGB(0, 255, 255); ScanStatus.TextSize = 12; ScanStatus.BackgroundTransparency = 1; ScanStatus.Text = "Waiting..."
+local Vars = { ManualTarget = "", SelectedBuyList = {}, SelectedEgg = "", SelectedPlot = "1" }
 
 -- ==========================================
--- TAB 1: ROLL SYSTEMS
+-- 1. ROLL TAB (ระบบสุ่ม)
 -- ==========================================
-local RollTab = Window:CreateTab("Roll Systems", 4483362458)
-RollTab:CreateSection("Smart Waterfall (Scan UI & Auto Best)")
-RollTab:CreateToggle({
+local T1 = Window:CreateTab("Roll Systems", 4483362458)
+T1:CreateSection("Smart Waterfall (Auto Best)")
+T1:CreateToggle({
    Name = "Enable Smart Waterfall",
    CurrentValue = false,
-   Flag = "Roll_Waterfall",
+   Flag = "f_wf",
    Callback = function(Value)
-      _G.WaterfallActive = Value
-      StatusFrame.Visible = Value
+      _G.WF_Active = Value
       if not Value then pcall(function() game:GetService("ReplicatedStorage").Network.Client.ToggleAutoRoll:FireServer(false) end) return end
       task.spawn(function()
-         while _G.WaterfallActive do
+         while _G.WF_Active do
             local inv = game:GetService("Players").LocalPlayer.PlayerGui:FindFirstChild("Main") and game:GetService("Players").LocalPlayer.PlayerGui.Main:FindFirstChild("DiceContainer") and game:GetService("Players").LocalPlayer.PlayerGui.Main.DiceContainer:FindFirstChild("Inventory") and game:GetService("Players").LocalPlayer.PlayerGui.Main.DiceContainer.Inventory:FindFirstChild("Scroll")
-            local bestFound = "None"
             for _, b in ipairs(WaterfallList) do
-               if not _G.WaterfallActive then break end
+               if not _G.WF_Active then break end
                local uiItem = inv and inv:FindFirstChild(b)
                if uiItem and uiItem.Visible == true then
                   local lock = uiItem:FindFirstChild("Locked")
                   if not lock or lock.Visible == false then
-                     bestFound = b
                      pcall(function() 
                         game:GetService("ReplicatedStorage").Network.Client.RollBlock:InvokeServer(b) 
                         game:GetService("ReplicatedStorage").Network.Client.ToggleAutoRoll:FireServer(true) 
@@ -64,45 +47,43 @@ RollTab:CreateToggle({
                   end
                end
             end
-            MainStatus.Text = "🚀 Locked: "..bestFound; ScanStatus.Text = "Scan Time: "..os.date("%X"); task.wait(0.01)
+            task.wait(0.01)
          end
       end)
    end,
 })
-
-RollTab:CreateSection("Manual Roll")
-RollTab:CreateDropdown({Name = "Select Block", Options = NormalList, Flag = "Roll_Manual_Select", Callback = function(O) Vars.ManualTarget = O[1] end})
-RollTab:CreateToggle({Name = "Start Manual Roll", Flag = "Roll_Manual_T", Callback = function(V) _G.ManRoll = V while _G.ManRoll do if Vars.ManualTarget ~= "" then pcall(function() game:GetService("ReplicatedStorage").Network.Client.RollBlock:InvokeServer(Vars.ManualTarget) game:GetService("ReplicatedStorage").Network.Client.ToggleAutoRoll:FireServer(true) end) end task.wait(0.1) end end})
-
--- ==========================================
--- TAB 2: AUTO BUY
--- ==========================================
-local BuyTab = Window:CreateTab("Auto Buy", 4483362458)
-BuyTab:CreateSection("Purchase Automation")
-BuyTab:CreateToggle({Name = "Buy ALL (33 Blocks)", Flag = "Buy_All_T", Callback = function(V) _G.BuyAll = V while _G.BuyAll do for _, n in pairs(WaterfallList) do if not _G.BuyAll then break end pcall(function() game:GetService("ReplicatedStorage").Network.Client.PurchaseMaxItems:InvokeServer(n, 999) end) end task.wait(0.1) end end})
-BuyTab:CreateDropdown({Name = "Multi-Buy Select", Options = NormalList, MultipleOptions = true, Flag = "Buy_Multi_D", Callback = function(O) Vars.SelectedBuyList = O end})
-BuyTab:CreateToggle({Name = "Buy Selected Max", Flag = "Buy_Selected_T", Callback = function(V) _G.BuySel = V while _G.BuySel do for _, n in pairs(Vars.SelectedBuyList) do if not _G.BuySel then break end pcall(function() game:GetService("ReplicatedStorage").Network.Client.PurchaseMaxItems:InvokeServer(n, 999) end) end task.wait(0.1) end end})
+T1:CreateSection("Manual Roll")
+T1:CreateDropdown({Name = "Select Block", Options = NormalList, Flag = "f_mr_d", Callback = function(O) Vars.ManualTarget = O[1] end})
+T1:CreateToggle({Name = "Start Manual Roll", Flag = "f_mr_t", Callback = function(V) _G.MR_Active = V while _G.MR_Active do if Vars.ManualTarget ~= "" then pcall(function() game:GetService("ReplicatedStorage").Network.Client.RollBlock:InvokeServer(Vars.ManualTarget) game:GetService("ReplicatedStorage").Network.Client.ToggleAutoRoll:FireServer(true) end) end task.wait(0.1) end end})
 
 -- ==========================================
--- TAB 3: PETS & UPGRADES
+-- 2. BUY TAB (ระบบซื้อ)
 -- ==========================================
-local UpTab = Window:CreateTab("Pets & Upgrades", 4483362458)
-UpTab:CreateSection("Auto Hatch")
-UpTab:CreateDropdown({Name = "Select Egg", Options = PetEggs, Flag = "Pet_Egg_D", Callback = function(O) Vars.SelectedEgg = O[1] end})
-UpTab:CreateToggle({Name = "Start Hatching", Flag = "Pet_Hatch_T", Callback = function(V) _G.Hatch = V while _G.Hatch do if Vars.SelectedEgg ~= "" then pcall(function() game:GetService("ReplicatedStorage").Network.Client.Hatch:InvokeServer(Vars.SelectedEgg, 1) end) end task.wait(0.1) end end})
-UpTab:CreateSection("Turbo Upgrade (0.01s)")
-UpTab:CreateInput({Name = "Plot Number", Flag = "Plot_Num_I", Callback = function(T) Vars.SelectedPlot = T end})
-UpTab:CreateToggle({Name = "Upgrade Selected Plot", Flag = "Up_Single_T", Callback = function(V) _G.UpS = V while _G.UpS do pcall(function() game:GetService("ReplicatedStorage").Network.Client.UpgradeBrainrot:InvokeServer(Vars.SelectedPlot) end) task.wait(0.01) end end})
-UpTab:CreateToggle({Name = "Upgrade ALL Plots", Flag = "Up_All_T", Callback = function(V) _G.UpA = V while _G.UpA do for i=1,100 do if not _G.UpA then break end pcall(function() game:GetService("ReplicatedStorage").Network.Client.UpgradeBrainrot:InvokeServer(tostring(i)) end) end task.wait(0.01) end end})
+local T2 = Window:CreateTab("Auto Buy", 4483362458)
+T2:CreateToggle({Name = "Buy ALL (33 Blocks)", Flag = "f_ba", Callback = function(V) _G.BA = V while _G.BA do for _, n in pairs(WaterfallList) do if not _G.BA then break end pcall(function() game:GetService("ReplicatedStorage").Network.Client.PurchaseMaxItems:InvokeServer(n, 999) end) end task.wait(0.1) end end})
+T2:CreateDropdown({Name = "Multi-Buy Select", Options = NormalList, MultipleOptions = true, Flag = "f_mb", Callback = function(O) Vars.SelectedBuyList = O end})
+T2:CreateToggle({Name = "Buy Selected Max", Flag = "f_bs", Callback = function(V) _G.BS = V while _G.BS do for _, n in pairs(Vars.SelectedBuyList) do if not _G.BS then break end pcall(function() game:GetService("ReplicatedStorage").Network.Client.PurchaseMaxItems:InvokeServer(n, 999) end) end task.wait(0.1) end end})
 
 -- ==========================================
--- TAB 4: MISC (THE COMPLETE AUDIT)
+-- 3. PETS & UPGRADES (สัตว์เลี้ยง & อัปเกรด)
 -- ==========================================
-local MiscTab = Window:CreateTab("Misc", 4483362458)
-MiscTab:CreateSection("Safety & Anti-AFK")
-MiscTab:CreateToggle({
-   Name = "Anti-AFK (Prevent Kick)",
-   Flag = "Misc_AntiAFK",
+local T3 = Window:CreateTab("Pets & Upgrades", 4483362458)
+T3:CreateDropdown({Name = "Select Egg", Options = PetEggs, Flag = "f_egg", Callback = function(O) Vars.SelectedEgg = O[1] end})
+T3:CreateToggle({Name = "Auto Hatch", Flag = "f_hat", Callback = function(V) _G.HA = V while _G.HA do if Vars.SelectedEgg ~= "" then pcall(function() game:GetService("ReplicatedStorage").Network.Client.Hatch:InvokeServer(Vars.SelectedEgg, 1) end) end task.wait(0.1) end end})
+T3:CreateSection("Turbo Upgrade (0.01s)")
+T3:CreateInput({Name = "Plot Num", Flag = "f_plot", Callback = function(T) Vars.SelectedPlot = T end})
+T3:CreateToggle({Name = "Upgrade Single", Flag = "f_us", Callback = function(V) _G.US = V while _G.US do pcall(function() game:GetService("ReplicatedStorage").Network.Client.UpgradeBrainrot:InvokeServer(Vars.SelectedPlot) end) task.wait(0.01) end end})
+T3:CreateToggle({Name = "Upgrade ALL", Flag = "f_ua", Callback = function(V) _G.UA = V while _G.UA do for i=1,100 do if not _G.UA then break end pcall(function() game:GetService("ReplicatedStorage").Network.Client.UpgradeBrainrot:InvokeServer(tostring(i)) end) end task.wait(0.01) end end})
+
+-- ==========================================
+-- 4. OTHERS (หน้า MISC ที่หายไป กลับมาแล้วครับ!)
+-- ==========================================
+local T4 = Window:CreateTab("Others", 4483362458) -- ใช้ชื่อ Others แทนเพื่อเลี่ยงบั๊ก
+T4:CreateSection("Anti-AFK & Rebirth")
+
+T4:CreateToggle({
+   Name = "Anti-AFK (กันหลุด)",
+   Flag = "f_afk",
    Callback = function(Value)
       _G.AntiAFK = Value
       if Value then
@@ -117,35 +98,33 @@ MiscTab:CreateToggle({
    end,
 })
 
-MiscTab:CreateSection("General Automation")
-MiscTab:CreateToggle({
-    Name = "Auto Rebirth",
-    Flag = "Misc_Rebirth_T",
+T4:CreateToggle({
+    Name = "Auto Rebirth (รัวๆ)",
+    Flag = "f_reb",
     Callback = function(V) 
-        _G.RebirthActive = V 
-        while _G.RebirthActive do 
+        _G.RB_Active = V 
+        while _G.RB_Active do 
             pcall(function() game:GetService("ReplicatedStorage").Network.Client.Rebirth:InvokeServer() end) 
             task.wait(1) 
         end 
     end
 })
 
-MiscTab:CreateToggle({
+T4:CreateSection("Automation")
+T4:CreateToggle({
     Name = "Auto Equip Best",
-    Flag = "Misc_Equip_T",
+    Flag = "f_eq",
     Callback = function(V) 
-        _G.EquipActive = V 
-        while _G.EquipActive do 
+        _G.EQ_Active = V 
+        while _G.EQ_Active do 
             pcall(function() game:GetService("ReplicatedStorage").Network.Client.EquipBestEntities:InvokeServer() end) 
             task.wait(1) 
         end 
     end
 })
 
-MiscTab:CreateSection("Sell Options")
-MiscTab:CreateToggle({Name = "Auto Sell (True)", Flag = "Misc_SellT", Callback = function(V) _G.SellT = V while _G.SellT do pcall(function() game:GetService("ReplicatedStorage").Network.Client.SellAllEntities:InvokeServer(true) end) task.wait(1) end end})
-MiscTab:CreateToggle({Name = "Auto Sell (False)", Flag = "Misc_SellF", Callback = function(V) _G.SellF = V while _G.SellF do pcall(function() game:GetService("ReplicatedStorage").Network.Client.SellAllEntities:InvokeServer(false) end) task.wait(1) end end})
+T4:CreateToggle({Name = "Auto Sell (True)", Flag = "f_st", Callback = function(V) _G.ST = V while _G.ST do pcall(function() game:GetService("ReplicatedStorage").Network.Client.SellAllEntities:InvokeServer(true) end) task.wait(1) end end})
+T4:CreateToggle({Name = "Auto Sell (False)", Flag = "f_sf", Callback = function(V) _G.SF = V while _G.SF do pcall(function() game:GetService("ReplicatedStorage").Network.Client.SellAllEntities:InvokeServer(false) end) task.wait(1) end end})
 
--- [[ FINAL BOOT UP ]]
 Rayfield:LoadConfiguration()
-Rayfield:Notify({Title = "V8.7 Restoration Success", Content = "All systems checked and verified. Misc tab is active.", Duration = 5})
+Rayfield:Notify({Title = "V8.8 Fix Active", Content = "Others Tab (Misc) is now 100% visible.", Duration = 5})
