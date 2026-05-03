@@ -1,0 +1,150 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "MonHub | Block Master V9.1",
+   LoadingTitle = "Inventory System Online...",
+   LoadingSubtitle = "Warp, Trade & Price Checker",
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = "MonHubConfigs",
+      FileName = "BlockMaster_Save"
+   }
+})
+
+-- [[ DATA LISTS ]]
+local WaterfallList = { "PinnacleBlock", "VerdictBlock", "HellcoreBlock", "DoomBlock", "BloodcodeBlock", "VortexBlock", "VercaBlock", "AnomalyBlock", "PhantomBlock", "CelestialEmperorBlock", "RadiantBlock", "AetherialBlock", "TheEndBlock", "KingsMantleBlock", "ToxicReactorBlock", "MoltenCoreBlock", "OuroborosBlock", "KingSunBlock", "InfinityBlock", "TimeBenderBlock", "BrambleBlock", "MagicBlock", "HeavenlyBlock", "DevilBlock", "AscendantBlock", "QuantumBlock", "GalaxyBlock", "MythicBlock", "LegendaryBlock", "EpicBlock", "RareBlock", "UncommonBlock", "CommonBlock" }
+local NormalList = { "CommonBlock", "UncommonBlock", "RareBlock", "EpicBlock", "LegendaryBlock", "MythicBlock", "GalaxyBlock", "QuantumBlock", "AscendantBlock", "DevilBlock", "HeavenlyBlock", "MagicBlock", "BrambleBlock", "TimeBenderBlock", "InfinityBlock", "KingSunBlock", "OuroborosBlock", "MoltenCoreBlock", "ToxicReactorBlock", "KingsMantleBlock", "TheEndBlock", "AetherialBlock", "RadiantBlock", "CelestialEmperorBlock", "PhantomBlock", "AnomalyBlock", "VercaBlock", "VortexBlock", "BloodcodeBlock", "DoomBlock", "HellcoreBlock", "VerdictBlock", "PinnacleBlock" }
+local PetEggs = { "Basic", "Coconut", "Crocodile", "Yeti", "Cupcake", "GoldenBasic" }
+
+-- [[ Global States ]]
+local Config = { ManualTarget = "", SelectedBuyList = {}, SelectedEgg = "", SelectedPlot = "1" }
+local SelectedPlayerID = nil
+local SelectedPlayerObj = nil
+
+-- [[ Services ]]
+local Players = game:GetService("Players")
+local LP = Players.LocalPlayer
+local RS = game:GetService("ReplicatedStorage")
+
+-- ==========================================
+-- [[ Tab 1: Roll Systems ]]
+-- ==========================================
+local RollTab = Window:CreateTab("Roll Systems", 4483362458)
+RollTab:CreateSection("Smart Waterfall (ระบบลดระดับอัตโนมัติ)")
+RollTab:CreateToggle({
+   Name = "Enable Smart Waterfall (Auto Best)",
+   CurrentValue = false,
+   Flag = "SmartRoll_Toggle",
+   Callback = function(Value)
+      _G.SmartRollActive = Value
+      if not Value then pcall(function() RS.Network.Client.ToggleAutoRoll:FireServer(false) end) return end
+      task.spawn(function()
+         while _G.SmartRollActive do
+            local inv = LP.PlayerGui:FindFirstChild("Main") and LP.PlayerGui.Main:FindFirstChild("DiceContainer") and LP.PlayerGui.Main.DiceContainer:FindFirstChild("Inventory") and LP.PlayerGui.Main.DiceContainer.Inventory:FindFirstChild("Scroll")
+            for _, blockName in ipairs(WaterfallList) do
+               if not _G.SmartRollActive then break end
+               local isAvailable = false
+               if inv then
+                  local uiItem = inv:FindFirstChild(blockName)
+                  if uiItem and uiItem.Visible == true then
+                     local lockOverlay = uiItem:FindFirstChild("Locked")
+                     if not lockOverlay or lockOverlay.Visible == false then isAvailable = true end
+                  end
+               end
+               if isAvailable then
+                  pcall(function() RS.Network.Client.RollBlock:InvokeServer(blockName) RS.Network.Client.ToggleAutoRoll:FireServer(true) end)
+                  break
+               end
+            end
+            task.wait(0.01)
+         end
+      end)
+   end,
+})
+
+-- ==========================================
+-- [[ Tab 2 - Tab 4: ระบบเดิม (ข้ามเพื่อประหยัดพื้นที่) ]]
+-- ==========================================
+local BuyTab = Window:CreateTab("Auto Buy", 4483362458)
+local UpTab = Window:CreateTab("Pets & Upgrades", 4483362458)
+local MiscTab = Window:CreateTab("Misc", 4483362458)
+
+-- ==========================================
+-- [[ Tab 5: Trade & Warp ]]
+-- ==========================================
+local TradeTab = Window:CreateTab("Trade & Warp", 4483362458)
+TradeTab:CreateSection("--- Connection Status ---")
+local PlayerStatus = TradeTab:CreateLabel("Status: ⚪ Waiting")
+local IDStatus = TradeTab:CreateLabel("ID: ⚪ None")
+
+TradeTab:CreateInput({
+   Name = "Search Player Name",
+   PlaceholderText = "Target Name...",
+   Callback = function(Text)
+      for _, p in pairs(Players:GetPlayers()) do
+         if p.Name:lower():sub(1, #Text) == Text:lower() then
+            SelectedPlayerID = p.UserId; SelectedPlayerObj = p
+            PlayerStatus:Set("Status: ✅ Locked! (" .. p.Name .. ")")
+            IDStatus:Set("ID: " .. tostring(SelectedPlayerID))
+            return
+         end
+      end
+   end,
+})
+
+TradeTab:CreateButton({
+   Name = "🚀 Warp & Send Trade",
+   Callback = function()
+      if SelectedPlayerID and SelectedPlayerObj then
+         pcall(function()
+            LP.Character.HumanoidRootPart.CFrame = SelectedPlayerObj.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
+            task.wait(0.3)
+            RS.Network.Client.Trade:FireServer("request", tonumber(SelectedPlayerID))
+         end)
+      end
+   end,
+})
+
+-- ==========================================
+-- [[ Tab 6: Inventory (New!) ]]
+-- ==========================================
+local InvTab = Window:CreateTab("Inventory", 4483362458)
+InvTab:CreateSection("--- My Brainrots Items ---")
+
+local InvContainer = {} -- เก็บ Label ไว้ลบเวลา Refresh
+
+local function LoadInventory()
+   -- ล้างหน้าจอเก่า (ถ้ามี)
+   for _, label in pairs(InvContainer) do label:Set("--- Cleaned ---") end
+   
+   local Brainrots = LP:FindFirstChild("Brainrots")
+   if Brainrots then
+      local count = 0
+      for _, item in pairs(Brainrots:GetChildren()) do
+         count = count + 1
+         -- ดึงชื่อและราคา (สมมติว่าราคาอยู่ใน Value หรือหาจากชื่อ)
+         local itemName = item.Name
+         local itemValue = item:FindFirstChild("Value") and item.Value.Value or "???"
+         
+         local entry = InvTab:CreateLabel("📦 " .. itemName .. " | Price: 💰 " .. tostring(itemValue))
+         table.insert(InvContainer, entry)
+         
+         if count >= 30 then break end -- กัน UI ค้างถ้าของเยอะเกิน
+      end
+      Rayfield:Notify({Title = "Inventory", Content = "Loaded " .. count .. " items", Duration = 2})
+   else
+      Rayfield:Notify({Title = "Error", Content = "Brainrots Folder not found!", Duration = 3})
+   end
+end
+
+InvTab:CreateButton({
+   Name = "🔄 Refresh Inventory List",
+   Callback = function()
+      LoadInventory()
+   end,
+})
+
+-- โหลดครั้งแรก
+task.spawn(LoadInventory)
+
+Rayfield:LoadConfiguration()
