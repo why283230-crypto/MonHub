@@ -1,7 +1,7 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "MonHub | Block Master V8.9",
+   Name = "MonHub | Block Master V9.0",
    LoadingTitle = "Ultimate System Restoration...",
    LoadingSubtitle = "Every Function Is Now Here",
    ConfigurationSaving = {
@@ -240,6 +240,86 @@ MiscTab:CreateSection("Sell System")
 MiscTab:CreateToggle({ Name = "Auto Sell (True)", Flag = "SellT_Toggle", Callback = function(V) _G.ST = V while _G.ST do pcall(function() game:GetService("ReplicatedStorage").Network.Client.SellAllEntities:InvokeServer(true) end) task.wait(1) end end })
 MiscTab:CreateToggle({ Name = "Auto Sell (False)", Flag = "SellF_Toggle", Callback = function(V) _G.SF = V while _G.SF do pcall(function() game:GetService("ReplicatedStorage").Network.Client.SellAllEntities:InvokeServer(false) end) task.wait(1) end end })
 
+-- ==========================================
+-- [[ Tab 5: Trade & Warp (Added!) ]]
+-- ==========================================
+local TradeTab = Window:CreateTab("Trade & Warp", 4483362458)
+
+local SelectedPlayerID = nil
+local SelectedPlayerObj = nil
+local Players = game:GetService("Players")
+local LP = Players.LocalPlayer
+local TradeRemote = game:GetService("ReplicatedStorage"):WaitForChild("Network"):WaitForChild("Client"):WaitForChild("Trade")
+
+TradeTab:CreateSection("--- Connection Status ---")
+local PlayerStatus = TradeTab:CreateLabel("Status: ⚪ Waiting for Input")
+local IDStatus = TradeTab:CreateLabel("ID: ⚪ None")
+
+TradeTab:CreateSection("--- Search Target ---")
+TradeTab:CreateInput({
+   Name = "Search Player Name",
+   PlaceholderText = "พิมพ์ชื่อเพื่อล็อคเป้าหมาย...",
+   RemoveTextAfterFocusLost = false,
+   Callback = function(Text)
+      for _, p in pairs(Players:GetPlayers()) do
+         if p.Name:lower():sub(1, #Text) == Text:lower() then
+            SelectedPlayerID = p.UserId
+            SelectedPlayerObj = p
+            PlayerStatus:Set("Status: ✅ Locked! (" .. p.Name .. ")")
+            IDStatus:Set("ID: " .. tostring(SelectedPlayerID))
+            return
+         end
+      end
+      SelectedPlayerID = nil; SelectedPlayerObj = nil
+      PlayerStatus:Set("Status: ❌ Not Found"); IDStatus:Set("ID: ⚪ None")
+   end,
+})
+
+TradeTab:CreateButton({
+   Name = "📍 Target Nearest Player",
+   Callback = function()
+      local closest = nil
+      local dist = math.huge
+      for _, p in pairs(Players:GetPlayers()) do
+         if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            local d = (LP.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
+            if d < dist then dist = d; closest = p end
+         end
+      end
+      if closest then
+         SelectedPlayerID = closest.UserId; SelectedPlayerObj = closest
+         PlayerStatus:Set("Status: ✅ Locked Nearest!"); IDStatus:Set("ID: " .. tostring(SelectedPlayerID))
+         Rayfield:Notify({Title = "Targeted", Content = "Locked on: " .. closest.Name, Duration = 2})
+      end
+   end,
+})
+
+TradeTab:CreateSection("--- Actions ---")
+TradeTab:CreateButton({
+   Name = "🚀 Warp & Send Trade",
+   Callback = function()
+      if SelectedPlayerID and SelectedPlayerObj then
+         local TargetChar = SelectedPlayerObj.Character
+         if TargetChar and TargetChar:FindFirstChild("HumanoidRootPart") then
+            pcall(function()
+               local BehindPos = TargetChar.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
+               LP.Character.HumanoidRootPart.CFrame = BehindPos
+            end)
+            Rayfield:Notify({Title = "Warping", Content = "Moving to " .. SelectedPlayerObj.Name, Duration = 1})
+            task.wait(0.3)
+            pcall(function()
+               TradeRemote:FireServer("request", tonumber(SelectedPlayerID))
+            end)
+            Rayfield:Notify({Title = "Success", Content = "Request Sent!", Duration = 2})
+         else
+            Rayfield:Notify({Title = "Error", Content = "Target character missing!", Duration = 3})
+         end
+      else
+         Rayfield:Notify({Title = "Warning", Content = "Please select a target first!", Duration = 3})
+      end
+   end,
+})
+
 -- [[ โหลด Config และ แจ้งเตือน ]]
 Rayfield:LoadConfiguration()
-Rayfield:Notify({Title = "V8.9 Fully Verified", Content = "เพิ่มระบบ Rebirth, Anti-AFK และระบบ Save ครบถ้วนครับ!", Duration = 5})
+Rayfield:Notify({Title = "V9.0 Trade Updated", Content = "รวมระบบเทรดและวาปเข้ากับสคริปต์หลักเรียบร้อย!", Duration = 5})
