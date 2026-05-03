@@ -1,29 +1,30 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "Pro Script | OG Zone Back-Warp",
+   Name = "Monhub | V1.2 (Instant Trade)",
    LoadingTitle = "Advanced Positioning System",
    LoadingSubtitle = "by Gemini Pro Writer",
    ConfigurationPath = "ProConfig"
 })
 
 local MainTab = Window:CreateTab("Auto Warp", 4483362458)
+local TradeTab = Window:CreateTab("Trade System", 4483362458)
 
--- ฟังก์ชันหัวใจสำคัญ: วาร์ปไปด้านหลัง Object
+-- [ ตัวแปรสำหรับระบบ Trade ] --
+local SelectedPlayer = ""
+
+-- [ ฟังก์ชันหัวใจสำคัญ: วาร์ปไปด้านหลัง Object (ส่วนนี้ห้ามแก้ตามสั่ง) ] --
 local function warpBehind(target)
     local lp = game.Players.LocalPlayer
     if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
         local hrp = lp.Character.HumanoidRootPart
-        
-        -- หา CFrame ของเป้าหมาย (รองรับทั้ง Part และ Model)
         local targetCFrame = target:IsA("Model") and target:GetPivot() or target.CFrame
-        
-        -- คำนวณจุดด้านหลัง: ตำแหน่งเป้าหมาย - (ทิศทางด้านหน้า * ระยะห่าง)
         local backPos = targetCFrame * CFrame.new(0, 0, 3) 
-        
         hrp.CFrame = backPos
     end
 end
+
+-- [ หมวด Auto Warp ] --
 
 -- ปุ่มวาร์ปไป Mythical Zone (Index 12)
 MainTab:CreateButton({
@@ -32,17 +33,10 @@ MainTab:CreateButton({
        local rarityParts = workspace:FindFirstChild("RarityParts")
        if rarityParts then
            local target = rarityParts:GetChildren()[12]
-           
            if target and game.Players.LocalPlayer.Character then
-               -- ตรวจสอบว่าเป็น Model หรือ Part เพื่อหาพิกัดที่แม่นยำ
                local targetCFrame = target:IsA("Model") and target:GetPivot() or target.CFrame
-               
-               -- วาร์ปไปที่ตำแหน่งนั้น + ยกตัวขึ้น 5 studs กันติดพื้น
                game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = targetCFrame + Vector3.new(0, 5, 0)
-               
                Rayfield:Notify({Title = "Teleport Success", Content = "วาร์ปไป Mythical Zone เรียบร้อย!", Duration = 2})
-           else
-               Rayfield:Notify({Title = "Error", Content = "ไม่พบ Index 12 ใน RarityParts", Duration = 2})
            end
        end
    end,
@@ -62,33 +56,86 @@ MainTab:CreateToggle({
                    for _, idx in pairs({17, 18}) do
                        local zone = rarityParts:GetChildren()[idx]
                        local itemsFolder = zone and zone:FindFirstChild("Items")
-                       
                        if itemsFolder then
                            for _, item in pairs(itemsFolder:GetChildren()) do
                                if not _G.WarpGrab then break end
-                               
-                               -- วาร์ปไปด้านหลัง
                                warpBehind(item)
-                               task.wait(0.1) -- รอให้ตำแหน่งอัปเดต
-                               
-                               -- สั่งเก็บ (Instant Grab)
+                               task.wait(0.1)
                                local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
                                if prompt then
                                    prompt.HoldDuration = 0
                                    fireproximityprompt(prompt)
                                end
-                               
-                               -- รัน Remote Collect เผื่อไว้ด้วย
                                game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("CollectEvent"):FireServer("CollectItem")
-                               
-                               task.wait(0.1) -- เวลาระหว่างชิ้น
+                               task.wait(0.1)
                            end
                        end
                    end
                end
-               task.wait(0.5) -- รอบการสแกนใหม่
+               task.wait(0.5)
            end
        end)
+   end,
+})
+
+-- [ หมวด Trade System (V1.2) - ระบบวาร์ปไปส่งแล้วกลับทันที ] --
+
+local function getPlayers()
+    local p = {}
+    for _, player in pairs(game:GetService("Players"):GetPlayers()) do
+        if player ~= game.Players.LocalPlayer then
+            table.insert(p, player.Name)
+        end
+    end
+    return p
+end
+
+local PlayerDropdown = TradeTab:CreateDropdown({
+   Name = "Select Player to Gift",
+   Options = getPlayers(),
+   CurrentOption = "",
+   Flag = "SelectedTarget",
+   Callback = function(Option)
+       SelectedPlayer = Option
+   end,
+})
+
+TradeTab:CreateButton({
+   Name = "Refresh Player List",
+   Callback = function()
+       PlayerDropdown:Refresh(getPlayers(), true)
+   end,
+})
+
+TradeTab:CreateButton({
+   Name = "Send Gift (Instant Snap)",
+   Callback = function()
+       if SelectedPlayer ~= "" then
+           local lp = game.Players.LocalPlayer
+           local target = game:GetService("Players"):FindFirstChild(SelectedPlayer)
+           
+           if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
+               -- 1. จำตำแหน่งปัจจุบัน
+               local oldCFrame = lp.Character.HumanoidRootPart.CFrame
+               
+               -- 2. วาร์ปไปหาผู้เล่นเป้าหมายเพื่อผ่านระยะ Check ของ Server
+               lp.Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame
+               
+               -- 3. ส่ง Gift (รอเสี้ยววินาทีให้ตำแหน่งอัปเดต)
+               task.wait(0.1)
+               local args = { target }
+               game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("GiftEvent"):FireServer(unpack(args))
+               
+               -- 4. วาร์ปกลับตำแหน่งเดิมทันที
+               lp.Character.HumanoidRootPart.CFrame = oldCFrame
+               
+               Rayfield:Notify({Title = "Trade Success", Content = "วาร์ปไปส่ง Gift ให้ " .. SelectedPlayer .. " และกลับมาที่เดิมแล้ว", Duration = 2})
+           else
+               Rayfield:Notify({Title = "Error", Content = "ไม่พบตัวละครของผู้เล่นเป้าหมาย", Duration = 2})
+           end
+       else
+           Rayfield:Notify({Title = "Error", Content = "กรุณาเลือกผู้เล่นก่อน!", Duration = 2})
+       end
    end,
 })
 
