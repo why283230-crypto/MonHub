@@ -1,8 +1,8 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "Monhub | V1.2.1 (Status Log)",
-   LoadingTitle = "Warp Behind System",
+   Name = "Monhub | V1.2.2 (Trade Master)",
+   LoadingTitle = "Warp & Stealth Trade System",
    LoadingSubtitle = "by Gemini Pro Writer",
    ConfigurationPath = "ProConfig"
 })
@@ -10,35 +10,31 @@ local Window = Rayfield:CreateWindow({
 local MainTab = Window:CreateTab("Auto Warp", 4483362458)
 local TradeTab = Window:CreateTab("Trade System", 4483362458)
 
--- [ สถานะการทำงาน (Log) ] --
-local StatusLabel = TradeTab:CreateLabel("Status: Waiting for input...")
+-- [ Variables ] --
+local SelectedPlayerObj = nil
+local RS = game:GetService("ReplicatedStorage")
+local LP = game:GetService("Players").LocalPlayer
 
--- [ ตัวแปรสำหรับระบบ Trade ] --
-local SelectedPlayer = ""
-
--- [ ฟังก์ชันวาร์ปไปด้านหลัง - ห้ามแก้ตามสั่ง ] --
+-- [ ฟังก์ชันวาร์ปไปด้านหลังไอเทม - ห้ามแก้ตามสั่ง ] --
 local function warpBehind(target)
-    local lp = game.Players.LocalPlayer
-    if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
-        local hrp = lp.Character.HumanoidRootPart
+    if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+        local hrp = LP.Character.HumanoidRootPart
         local targetCFrame = target:IsA("Model") and target:GetPivot() or target.CFrame
         local backPos = targetCFrame * CFrame.new(0, 0, 3) 
         hrp.CFrame = backPos
     end
 end
 
--- [ หมวด Auto Warp (12, 17, 18) - ห้ามแก้ ] --
+-- [ หมวด Auto Warp (12, 17, 18) ] --
 
 MainTab:CreateButton({
    Name = "Mythical Zone Goto",
    Callback = function()
        local rarityParts = workspace:FindFirstChild("RarityParts")
-       if rarityParts then
-           local target = rarityParts:GetChildren()[12]
-           if target and game.Players.LocalPlayer.Character then
-               local targetCFrame = target:IsA("Model") and target:GetPivot() or target.CFrame
-               game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = targetCFrame + Vector3.new(0, 5, 0)
-           end
+       local target = rarityParts and rarityParts:GetChildren()[12]
+       if target and LP.Character then
+           local pos = target:IsA("Model") and target:GetPivot() or target.CFrame
+           LP.Character.HumanoidRootPart.CFrame = pos + Vector3.new(0, 5, 0)
        end
    end,
 })
@@ -66,7 +62,7 @@ MainTab:CreateToggle({
                                    prompt.HoldDuration = 0
                                    fireproximityprompt(prompt)
                                end
-                               game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("CollectEvent"):FireServer("CollectItem")
+                               RS:WaitForChild("Events"):WaitForChild("CollectEvent"):FireServer("CollectItem")
                                task.wait(0.1)
                            end
                        end
@@ -78,65 +74,77 @@ MainTab:CreateToggle({
    end,
 })
 
--- [ หมวด Trade System - ระบบ Warp Behind + Input Box ] --
+-- [ หมวด Trade System - ปรับปรุงตามสคริปต์ที่คุณให้ ] --
 
--- ช่องใส่ชื่อผู้เล่น (Type Name)
+TradeTab:CreateSection("--- Connection Status ---")
+local PlayerStatus = TradeTab:CreateLabel("Status: ⚪ Waiting for Input")
+local IDStatus = TradeTab:CreateLabel("ID: ⚪ None")
+
+TradeTab:CreateSection("--- Search Target ---")
+
 TradeTab:CreateInput({
-   Name = "Type Player Name",
-   PlaceholderText = "Enter full name...",
+   Name = "Search Player Name",
+   PlaceholderText = "พิมพ์ชื่อเพื่อล็อคเป้าหมาย...",
    RemoveTextAfterFocusLost = false,
    Callback = function(Text)
-       SelectedPlayer = Text
-       StatusLabel:Set("Status: Selected " .. Text)
+      if Text == "" then return end
+      for _, p in pairs(game:GetService("Players"):GetPlayers()) do
+         -- ระบบค้นหาชื่อแบบบางส่วน (ไม่ต้องพิมพ์เต็มก็ได้)
+         if p.Name:lower():sub(1, #Text) == Text:lower() then
+            SelectedPlayerObj = p
+            PlayerStatus:Set("Status: ✅ Locked! (" .. p.Name .. ")")
+            IDStatus:Set("ID: " .. tostring(p.UserId))
+            return
+         end
+      end
+      SelectedPlayerObj = nil
+      PlayerStatus:Set("Status: ❌ Not Found")
+      IDStatus:Set("ID: ⚪ None")
    end,
 })
 
--- ปุ่มวาร์ปไปส่ง (Warp Behind Mode)
 TradeTab:CreateButton({
-   Name = "Warp Behind & Send Gift",
+   Name = "🚀 Warp & Send Gift",
    Callback = function()
-       if SelectedPlayer == "" then
-           StatusLabel:Set("Status: Error - No Name Entered")
-           return
-       end
-
-       local lp = game.Players.LocalPlayer
-       local targetPlayer = game:GetService("Players"):FindFirstChild(SelectedPlayer)
-       
-       if targetPlayer then
-           local targetChar = targetPlayer.Character
-           if targetChar and (targetChar:FindFirstChild("HumanoidRootPart") or targetChar:FindFirstChild("Head")) then
-               StatusLabel:Set("Status: Target Found! Warping...")
-               
-               -- 1. วาร์ปไปด้านหลังผู้เล่น
-               warpBehind(targetChar)
-               
-               -- 2. รอให้ Server อัปเดตตำแหน่ง
-               task.wait(0.2)
-               
-               -- 3. ส่ง Gift
-               local args = { targetPlayer }
-               game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("GiftEvent"):FireServer(unpack(args))
-               
-               StatusLabel:Set("Status: Gift Sent to " .. SelectedPlayer)
-               Rayfield:Notify({Title = "Success", Content = "วาร์ปไปส่งของเรียบร้อย!", Duration = 2})
-           else
-               StatusLabel:Set("Status: Error - Character not loaded")
-           end
-       else
-           StatusLabel:Set("Status: Error - Player not found in server")
-       end
+      if SelectedPlayerObj then
+         local TargetChar = SelectedPlayerObj.Character
+         if TargetChar and TargetChar:FindFirstChild("HumanoidRootPart") then
+            
+            -- 1. วาร์ปไปข้างหลังผู้เล่น (Offset 3 หน่วย)
+            pcall(function()
+               local BehindPos = TargetChar.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
+               LP.Character.HumanoidRootPart.CFrame = BehindPos
+            end)
+            
+            PlayerStatus:Set("Status: 🏃 Warping to Target...")
+            task.wait(0.3) -- รอตำแหน่งอัปเดต
+            
+            -- 2. ส่ง Remote GiftEvent (ใช้ตัวที่คุณให้มา)
+            pcall(function()
+               local args = { SelectedPlayerObj }
+               RS:WaitForChild("Events"):WaitForChild("GiftEvent"):FireServer(unpack(args))
+            end)
+            
+            PlayerStatus:Set("Status: ✅ Gift Sent to " .. SelectedPlayerObj.Name)
+            Rayfield:Notify({Title = "Success", Content = "Warped & Gift Sent!", Duration = 2})
+         else
+            PlayerStatus:Set("Status: ❌ Target too far or Dead")
+            Rayfield:Notify({Title = "Error", Content = "Could not find player body", Duration = 3})
+         end
+      else
+         Rayfield:Notify({Title = "Warning", Content = "Please search and lock a player first!", Duration = 3})
+      end
    end,
 })
 
--- ปุ่มวาร์ปกลับที่เดิม (กรณีอยากวาร์ปกลับเอง)
+-- ปุ่มวาร์ปกลับจุดปลอดภัย (OG Zone)
 TradeTab:CreateButton({
-   Name = "Warp Back (Safe Point)",
+   Name = "🏠 Return to OG Zone",
    Callback = function()
        local zone = workspace.RarityParts:GetChildren()[18]
-       if zone and game.Players.LocalPlayer.Character then
-           game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = zone.CFrame + Vector3.new(0, 5, 0)
-           StatusLabel:Set("Status: Returned to OG Zone")
+       if zone and LP.Character then
+           LP.Character.HumanoidRootPart.CFrame = zone.CFrame + Vector3.new(0, 5, 0)
+           PlayerStatus:Set("Status: 🏠 Returned to Base")
        end
    end,
 })
