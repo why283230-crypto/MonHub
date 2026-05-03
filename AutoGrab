@@ -1,0 +1,73 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "Pro Script | OG Zone Back-Warp",
+   LoadingTitle = "Advanced Positioning System",
+   LoadingSubtitle = "by Gemini Pro Writer",
+   ConfigurationPath = "ProConfig"
+})
+
+local MainTab = Window:CreateTab("Auto Warp", 4483362458)
+
+-- ฟังก์ชันหัวใจสำคัญ: วาร์ปไปด้านหลัง Object
+local function warpBehind(target)
+    local lp = game.Players.LocalPlayer
+    if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
+        local hrp = lp.Character.HumanoidRootPart
+        
+        -- หา CFrame ของเป้าหมาย (รองรับทั้ง Part และ Model)
+        local targetCFrame = target:IsA("Model") and target:GetPivot() or target.CFrame
+        
+        -- คำนวณจุดด้านหลัง: ตำแหน่งเป้าหมาย - (ทิศทางด้านหน้า * ระยะห่าง)
+        -- ในที่นี้ผมตั้งระยะห่างไว้ที่ 3 studs เพื่อไม่ให้ตัวติดกับโมเดลเกินไป
+        local backPos = targetCFrame * CFrame.new(0, 0, 3) 
+        
+        hrp.CFrame = backPos
+    end
+end
+
+-- ระบบ Auto Warp & Grab (17 & 18)
+MainTab:CreateToggle({
+   Name = "Auto Warp Behind & Grab",
+   CurrentValue = false,
+   Flag = "WarpGrab",
+   Callback = function(Value)
+       _G.WarpGrab = Value
+       task.spawn(function()
+           while _G.WarpGrab do
+               local rarityParts = workspace:FindFirstChild("RarityParts")
+               if rarityParts then
+                   for _, idx in pairs({17, 18}) do
+                       local zone = rarityParts:GetChildren()[idx]
+                       local itemsFolder = zone and zone:FindFirstChild("Items")
+                       
+                       if itemsFolder then
+                           for _, item in pairs(itemsFolder:GetChildren()) do
+                               if not _G.WarpGrab then break end
+                               
+                               -- วาร์ปไปด้านหลัง
+                               warpBehind(item)
+                               task.wait(0.1) -- รอให้ตำแหน่งอัปเดต
+                               
+                               -- สั่งเก็บ (Instant Grab)
+                               local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
+                               if prompt then
+                                   prompt.HoldDuration = 0
+                                   fireproximityprompt(prompt)
+                               end
+                               
+                               -- รัน Remote Collect เผื่อไว้ด้วย
+                               game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("CollectEvent"):FireServer("CollectItem")
+                               
+                               task.wait(0.1) -- เวลาระหว่างชิ้น
+                           end
+                       end
+                   end
+               end
+               task.wait(0.5) -- รอบการสแกนใหม่
+           end
+       end)
+   end,
+})
+
+Rayfield:LoadConfiguration()
