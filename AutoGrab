@@ -10,10 +10,9 @@ local Window = Rayfield:CreateWindow({
 local MainTab = Window:CreateTab("Auto Warp", 4483362458)
 local TradeTab = Window:CreateTab("Trade System", 4483362458)
 
--- [ ตัวแปรสำหรับระบบ Trade ] --
 local SelectedPlayer = ""
 
--- [ ฟังก์ชันหัวใจสำคัญ: วาร์ปไปด้านหลัง Object (ส่วนนี้ห้ามแก้ตามสั่ง) ] --
+-- [ ฟังก์ชันวาร์ปไปด้านหลังไอเทม - ห้ามแก้ตามสั่ง ] --
 local function warpBehind(target)
     local lp = game.Players.LocalPlayer
     if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
@@ -25,8 +24,6 @@ local function warpBehind(target)
 end
 
 -- [ หมวด Auto Warp ] --
-
--- ปุ่มวาร์ปไป Mythical Zone (Index 12)
 MainTab:CreateButton({
    Name = "Mythical Zone Goto",
    Callback = function()
@@ -36,13 +33,12 @@ MainTab:CreateButton({
            if target and game.Players.LocalPlayer.Character then
                local targetCFrame = target:IsA("Model") and target:GetPivot() or target.CFrame
                game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = targetCFrame + Vector3.new(0, 5, 0)
-               Rayfield:Notify({Title = "Teleport Success", Content = "วาร์ปไป Mythical Zone เรียบร้อย!", Duration = 2})
+               Rayfield:Notify({Title = "Teleport Success", Content = "วาร์ปไป Mythical Zone แล้ว!", Duration = 2})
            end
        end
    end,
 })
 
--- ระบบ Auto Warp & Grab (17 & 18)
 MainTab:CreateToggle({
    Name = "Auto Warp Behind & Grab",
    CurrentValue = false,
@@ -78,8 +74,7 @@ MainTab:CreateToggle({
    end,
 })
 
--- [ หมวด Trade System (V1.2) - ระบบวาร์ปไปส่งแล้วกลับทันที ] --
-
+-- [ หมวด Trade System - ปรับปรุงการหาตัวผู้เล่น ] --
 local function getPlayers()
     local p = {}
     for _, player in pairs(game:GetService("Players"):GetPlayers()) do
@@ -112,26 +107,31 @@ TradeTab:CreateButton({
    Callback = function()
        if SelectedPlayer ~= "" then
            local lp = game.Players.LocalPlayer
-           local target = game:GetService("Players"):FindFirstChild(SelectedPlayer)
+           local targetPlayer = game:GetService("Players"):FindFirstChild(SelectedPlayer)
            
-           if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
-               -- 1. จำตำแหน่งปัจจุบัน
+           -- ตรวจสอบตัวละครเป้าหมายแบบละเอียด
+           local targetChar = targetPlayer and targetPlayer.Character
+           local targetHrp = targetChar and (targetChar:FindFirstChild("HumanoidRootPart") or targetChar:FindFirstChild("Torso") or targetChar:FindFirstChild("UpperTorso"))
+           
+           if targetHrp and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
                local oldCFrame = lp.Character.HumanoidRootPart.CFrame
                
-               -- 2. วาร์ปไปหาผู้เล่นเป้าหมายเพื่อผ่านระยะ Check ของ Server
-               lp.Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame
+               -- วาร์ปไปจุดที่เขาอยู่
+               lp.Character.HumanoidRootPart.CFrame = targetHrp.CFrame
                
-               -- 3. ส่ง Gift (รอเสี้ยววินาทีให้ตำแหน่งอัปเดต)
-               task.wait(0.1)
-               local args = { target }
+               task.wait(0.15) -- เพิ่มเวลานิดหน่อยเพื่อให้ Server มั่นใจว่าเราอยู่ตรงนั้นจริง
+               
+               local args = { targetPlayer }
                game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("GiftEvent"):FireServer(unpack(args))
                
-               -- 4. วาร์ปกลับตำแหน่งเดิมทันที
+               task.wait(0.05)
                lp.Character.HumanoidRootPart.CFrame = oldCFrame
                
-               Rayfield:Notify({Title = "Trade Success", Content = "วาร์ปไปส่ง Gift ให้ " .. SelectedPlayer .. " และกลับมาที่เดิมแล้ว", Duration = 2})
+               Rayfield:Notify({Title = "Trade Success", Content = "ส่ง Gift ให้ " .. SelectedPlayer .. " แล้ว!", Duration = 2})
            else
-               Rayfield:Notify({Title = "Error", Content = "ไม่พบตัวละครของผู้เล่นเป้าหมาย", Duration = 2})
+               -- ถ้าหาไม่เจอ ให้ลองส่งแบบไม่วาร์ปดูเผื่อฟลุ๊ค
+               game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("GiftEvent"):FireServer(unpack({targetPlayer}))
+               Rayfield:Notify({Title = "Warning", Content = "หาตัวไม่เจอ แต่พยายามส่ง Remote ให้แล้ว", Duration = 2})
            end
        else
            Rayfield:Notify({Title = "Error", Content = "กรุณาเลือกผู้เล่นก่อน!", Duration = 2})
