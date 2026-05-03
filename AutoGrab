@@ -1,46 +1,56 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "Pro Script | Ultimate OG Edition",
-   LoadingTitle = "All-In-One System",
+   Name = "Pro Script | OG Zone Back-Warp",
+   LoadingTitle = "Advanced Positioning System",
    LoadingSubtitle = "by Gemini Pro Writer",
    ConfigurationPath = "ProConfig"
 })
 
-local MainTab = Window:CreateTab("Main Features", 4483362458)
-local UpgradeTab = Window:CreateTab("Upgrades", 4483362458)
+local MainTab = Window:CreateTab("Auto Warp", 4483362458)
 
--- [ ฟังก์ชันพื้นฐาน ] --
+-- ฟังก์ชันหัวใจสำคัญ: วาร์ปไปด้านหลัง Object
 local function warpBehind(target)
     local lp = game.Players.LocalPlayer
     if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
         local hrp = lp.Character.HumanoidRootPart
+        
+        -- หา CFrame ของเป้าหมาย (รองรับทั้ง Part และ Model)
         local targetCFrame = target:IsA("Model") and target:GetPivot() or target.CFrame
+        
+        -- คำนวณจุดด้านหลัง: ตำแหน่งเป้าหมาย - (ทิศทางด้านหน้า * ระยะห่าง)
         local backPos = targetCFrame * CFrame.new(0, 0, 3) 
+        
         hrp.CFrame = backPos
     end
 end
 
--- [ หมวด Main Features ] --
-
--- 1. ปุ่มวาร์ปไป Mythical Zone (Index 12)
+-- ปุ่มวาร์ปไป Mythical Zone (Index 12)
 MainTab:CreateButton({
    Name = "Mythical Zone Goto",
    Callback = function()
        local rarityParts = workspace:FindFirstChild("RarityParts")
        if rarityParts then
            local target = rarityParts:GetChildren()[12]
+           
            if target and game.Players.LocalPlayer.Character then
+               -- ตรวจสอบว่าเป็น Model หรือ Part เพื่อหาพิกัดที่แม่นยำ
                local targetCFrame = target:IsA("Model") and target:GetPivot() or target.CFrame
+               
+               -- วาร์ปไปที่ตำแหน่งนั้น + ยกตัวขึ้น 5 studs กันติดพื้น
                game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = targetCFrame + Vector3.new(0, 5, 0)
+               
+               Rayfield:Notify({Title = "Teleport Success", Content = "วาร์ปไป Mythical Zone เรียบร้อย!", Duration = 2})
+           else
+               Rayfield:Notify({Title = "Error", Content = "ไม่พบ Index 12 ใน RarityParts", Duration = 2})
            end
        end
    end,
 })
 
--- 2. ระบบ Auto Warp Behind & Grab (ด่าน 17 & 18)
+-- ระบบ Auto Warp & Grab (17 & 18)
 MainTab:CreateToggle({
-   Name = "Auto Warp Behind & Grab (17 & 18)",
+   Name = "Auto Warp Behind & Grab",
    CurrentValue = false,
    Flag = "WarpGrab",
    Callback = function(Value)
@@ -52,73 +62,31 @@ MainTab:CreateToggle({
                    for _, idx in pairs({17, 18}) do
                        local zone = rarityParts:GetChildren()[idx]
                        local itemsFolder = zone and zone:FindFirstChild("Items")
+                       
                        if itemsFolder then
                            for _, item in pairs(itemsFolder:GetChildren()) do
                                if not _G.WarpGrab then break end
+                               
+                               -- วาร์ปไปด้านหลัง
                                warpBehind(item)
-                               task.wait(0.1)
+                               task.wait(0.1) -- รอให้ตำแหน่งอัปเดต
+                               
+                               -- สั่งเก็บ (Instant Grab)
                                local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
                                if prompt then
                                    prompt.HoldDuration = 0
                                    fireproximityprompt(prompt)
                                end
+                               
+                               -- รัน Remote Collect เผื่อไว้ด้วย
                                game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("CollectEvent"):FireServer("CollectItem")
-                               task.wait(0.1)
+                               
+                               task.wait(0.1) -- เวลาระหว่างชิ้น
                            end
                        end
                    end
                end
-               task.wait(0.5)
-           end
-       end)
-   end,
-})
-
--- 3. Claim Unit (Remote Toggle)
-MainTab:CreateToggle({
-   Name = "Claim Unit (Remote)",
-   CurrentValue = false,
-   Flag = "ClaimUnit",
-   Callback = function(Value)
-       _G.ClaimUnit = Value
-       task.spawn(function()
-           local remote = game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("CollectEvent")
-           while _G.ClaimUnit do
-               remote:FireServer("CollectItem")
-               task.wait(0.1)
-           end
-       end)
-   end,
-})
-
--- [ หมวด Upgrades ] --
-
--- 4. Auto Upgrade Aura (Slot 1-20)
-UpgradeTab:CreateToggle({
-   Name = "Auto Upgrade Aura (Slot 1-20)",
-   CurrentValue = false,
-   Flag = "UpgradeAura",
-   Callback = function(Value)
-       _G.UpgradeAura = Value
-       task.spawn(function()
-           local remote = game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("UpgradeItemEvent")
-           local userId = tostring(game.Players.LocalPlayer.UserId)
-           while _G.UpgradeAura do
-               for i = 1, 20 do
-                   if not _G.UpgradeAura then break end
-                   local slotName = "Slot" .. i
-                   local plotPath = workspace.Plots.PlayerPlots:FindFirstChild(userId)
-                   if plotPath then
-                       local targetSlot = plotPath.Floor1.Slots:FindFirstChild(slotName)
-                       if targetSlot and targetSlot:FindFirstChild("Upgrade") then
-                           local upgradeGUI = targetSlot.Upgrade.Part:FindFirstChild("UpgradeGUI")
-                           if upgradeGUI then
-                               remote:FireServer(upgradeGUI, "NormalUpgrade")
-                           end
-                       end
-                   end
-               end
-               task.wait(0.5)
+               task.wait(0.5) -- รอบการสแกนใหม่
            end
        end)
    end,
