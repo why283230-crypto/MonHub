@@ -54,7 +54,7 @@ local function SendSummaryLog()
     for _, item in ipairs(sortedList) do report = report .. "🛒 **" .. item.Name .. "**: +" .. item.Bought .. " (รวม: `" .. formatNumber(item.Total) .. "`)\n" end
     local payload = game:GetService("HttpService"):JSONEncode({
         ["embeds"] = {{
-            ["title"] = "🛍️ MonHub | รายงานการกวาดซื้อสรุปยอด",
+            ["title"] = "🛍️ MonHub | สรุปยอดรอบนี้",
             ["description"] = report,
             ["color"] = 0x32cd32,
             ["footer"] = {["text"] = "Player: " .. game.Players.LocalPlayer.Name .. " | " .. os.date("%X")},
