@@ -10,7 +10,7 @@ local Window = Rayfield:CreateWindow({
 local WaterfallList = { "PinnacleBlock", "VerdictBlock", "HellcoreBlock", "DoomBlock", "BloodcodeBlock", "VortexBlock", "VercaBlock", "AnomalyBlock", "PhantomBlock", "CelestialEmperorBlock", "RadiantBlock", "AetherialBlock", "TheEndBlock", "KingsMantleBlock", "ToxicReactorBlock", "MoltenCoreBlock", "OuroborosBlock", "KingSunBlock", "InfinityBlock", "TimeBenderBlock", "BrambleBlock", "MagicBlock", "HeavenlyBlock", "DevilBlock", "AscendantBlock", "QuantumBlock", "GalaxyBlock", "MythicBlock", "LegendaryBlock", "EpicBlock", "RareBlock", "UncommonBlock", "CommonBlock" }
 local Config = { WebhookURL = "" }
 
--- [[ ฟังก์ชันดึงยอดรวม (ถ้าดึงไม่ได้จะโชว์ว่า Unknown) ]]
+-- [[ ฟังก์ชันดึงยอดรวม ]]
 local function GetTotal(itemName)
     local total = "N/A"
     pcall(function()
@@ -22,6 +22,7 @@ local function GetTotal(itemName)
     return total
 end
 
+-- [[ ฟังก์ชันส่ง Webhook ]]
 local function SendSummaryWebhook(report, realTime)
     if Config.WebhookURL == "" or Config.WebhookURL == nil then return end
     local requestFunc = (syn and syn.request) or (http and http.request) or http_request or request
@@ -45,7 +46,7 @@ local function SendSummaryWebhook(report, realTime)
 end
 
 -- ==========================================
--- [[ Tab 2: Auto Buy (CONFIRMED LOG) ]]
+-- [[ Tab 2: Auto Buy ]]
 -- ==========================================
 local BuyTab = Window:CreateTab("Auto Buy", 4483362458)
 
@@ -59,15 +60,13 @@ BuyTab:CreateToggle({
          local realTimeStr = os.date("%X")
 
          if realMinute and (realMinute % 5 == 0) then
-            local boughtThisRound = {} -- เก็บชื่อตัวที่ซื้อสำเร็จ
+            local boughtThisRound = {} 
             
             Rayfield:Notify({Title = "Shop Reset!", Content = "เริ่มกวาดซื้อและบันทึกรายชื่อ...", Duration = 3})
 
-            -- ลูปซื้อจนหมดนาที
             repeat
                if not _G.BAll then break end
                for _, n in pairs(WaterfallList) do 
-                  -- ใช้ pcall เช็คการยิง Remote
                   local success = game:GetService("ReplicatedStorage").Network.Client.PurchaseMaxItems:InvokeServer(n, 999)
                   if success then
                       boughtThisRound[n] = true
@@ -76,7 +75,6 @@ BuyTab:CreateToggle({
                task.wait(1)
             until tonumber(os.date("%M")) ~= realMinute or not _G.BAll
 
-            -- สร้างข้อความสรุป
             local reportStr = "**✅ รายการที่กวาดซื้อสำเร็จ:**\n"
             local hasItem = false
             for name, _ in pairs(boughtThisRound) do
@@ -96,4 +94,26 @@ BuyTab:CreateToggle({
    end,
 })
 
--- (ส่วน Tab Misc และอื่นๆ เหมือนเดิมครับพี่)
+-- ==========================================
+-- [[ Tab 4: Misc (Webhook Input อยู่ที่นี่ครับ) ]]
+-- ==========================================
+local MiscTab = Window:CreateTab("Misc", 4483362458)
+
+MiscTab:CreateSection("Discord Webhook")
+MiscTab:CreateInput({
+   Name = "Webhook URL",
+   PlaceholderText = "วาง Link แล้วกด Enter",
+   Callback = function(T) 
+      Config.WebhookURL = T 
+      Rayfield:Notify({Title = "Webhook Saved", Content = "บันทึก Link เรียบร้อย!", Duration = 2})
+   end,
+})
+
+MiscTab:CreateButton({
+   Name = "🧪 Test Send Log",
+   Callback = function()
+      SendSummaryWebhook("🔹 **PinnacleBlock** (ยอดรวม: 10)\n(นี่คือข้อความทดสอบ)", "TEST-MODE")
+   end,
+})
+
+-- แท็บอื่นๆ (Roll, Trade) สามารถใส่ต่อท้ายได้เลยครับ
