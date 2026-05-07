@@ -1,22 +1,29 @@
+-- [[ MonHub | V11.6 - แก้ไขระบบเรียงลำดับความหายาก ]]
+
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "MonHub | Block Master V11.5",
-   LoadingTitle = "Integrating Ultimate Logger...",
-   LoadingSubtitle = "V11.3 Stability + V11.5 Logic",
+   Name = "MonHub | Block Master V11.6",
+   LoadingTitle = "Sorting Priority Items...",
+   LoadingSubtitle = "Common to Pinnacle Logic",
    ConfigurationSaving = { Enabled = true, FolderName = "MonHubConfigs", FileName = "BlockMaster_Save" }
 })
 
--- [[ DATA LISTS ]]
+-- [[ DATA LISTS (เรียงจากหายากไปหาง่ายสำหรับการซื้อ) ]]
 local WaterfallList = { "PinnacleBlock", "VerdictBlock", "HellcoreBlock", "DoomBlock", "BloodcodeBlock", "VortexBlock", "VercaBlock", "AnomalyBlock", "PhantomBlock", "CelestialEmperorBlock", "RadiantBlock", "AetherialBlock", "TheEndBlock", "KingsMantleBlock", "ToxicReactorBlock", "MoltenCoreBlock", "OuroborosBlock", "KingSunBlock", "InfinityBlock", "TimeBenderBlock", "BrambleBlock", "MagicBlock", "HeavenlyBlock", "DevilBlock", "AscendantBlock", "QuantumBlock", "GalaxyBlock", "MythicBlock", "LegendaryBlock", "EpicBlock", "RareBlock", "UncommonBlock", "CommonBlock" }
-local Config = { WebhookURL = "" }
 
--- [[ ตัวแปรสำหรับระบบรวมยอด (Queue System) ]]
+-- [[ สร้างลำดับสำหรับการเรียง Log (เรียงกลับด้าน: Common อยู่บนสุด) ]]
+local RarityOrder = {}
+for i, name in ipairs(WaterfallList) do
+    -- ให้ Common (อันดับท้ายสุดของ Waterfall) มีค่า Priority สูงสุดใน Log
+    RarityOrder[name] = i 
+end
+
+local Config = { WebhookURL = "" }
 local purchaseQueue = {}
 local isWaiting = false
 local waitTime = 2 
 
--- [[ ฟังก์ชันย่อตัวเลข ]]
 local function formatNumber(n)
     n = tonumber(n) or 0
     if n >= 1000000 then return string.format("%.1fm", n/1000000):gsub("%.0m", "m")
@@ -24,7 +31,7 @@ local function formatNumber(n)
     else return tostring(n) end
 end
 
--- [[ ฟังก์ชันส่ง Log สรุป (ตัวที่พี่ส่งมา) ]]
+-- [[ ฟังก์ชันส่ง Log แบบเรียงลำดับใหม่ ]]
 local function SendSummaryLog()
     if Config.WebhookURL == "" or Config.WebhookURL == nil then 
         purchaseQueue = {}
@@ -32,10 +39,23 @@ local function SendSummaryLog()
         return 
     end
     
+    -- 1. ดึงชื่อไอเทมที่มีการซื้อในรอบนี้ออกมาใส่ Table ใหม่
+    local sortedList = {}
+    for name, data in pairs(purchaseQueue) do
+        table.insert(sortedList, {Name = name, Bought = data.bought, Total = data.total})
+    end
+
+    -- 2. ทำการ Sort (เรียงลำดับ) ตาม RarityOrder
+    -- เราเรียงจากเลขมากไปน้อย (เพราะ Common อยู่ลำดับท้ายสุดใน WaterfallList คือเลข 33)
+    table.sort(sortedList, function(a, b)
+        return RarityOrder[a.Name] > RarityOrder[b.Name]
+    end)
+
+    -- 3. สร้างข้อความรายงาน
     local report = ""
     local hasData = false
-    for name, data in pairs(purchaseQueue) do
-        report = report .. "🛒 **" .. name .. "**: +" .. data.bought .. " (รวม: `" .. formatNumber(data.total) .. "`)\n"
+    for _, item in ipairs(sortedList) do
+        report = report .. "🛒 **" .. item.Name .. "**: +" .. item.Bought .. " (รวม: `" .. formatNumber(item.Total) .. "`)\n"
         hasData = true
     end
 
@@ -43,10 +63,10 @@ local function SendSummaryLog()
 
     local payload = game:GetService("HttpService"):JSONEncode({
         ["embeds"] = {{
-            ["title"] = "🛍️ MonHub | รายงานการกวาดซื้อสรุปยอด",
+            ["title"] = "🛍️ MonHub | รายงานกวาดซื้อ (เรียงตามความหายาก)",
             ["description"] = report,
             ["color"] = 0x32cd32,
-            ["footer"] = {["text"] = "Player: " .. game.Players.LocalPlayer.Name .. " | Time: " .. os.date("%X")},
+            ["footer"] = {["text"] = "Common ➡️ Pinnacle | " .. os.date("%X")},
             ["timestamp"] = DateTime.now():ToIsoDate()
         }}
     })
@@ -60,87 +80,5 @@ local function SendSummaryLog()
     isWaiting = false
 end
 
--- [[ ระบบ Monitor ดักจับค่า Value (จากโค้ดของพี่) ]]
-task.spawn(function()
-    while true do
-        for _, v in ipairs(game.Players.LocalPlayer:GetDescendants()) do
-            -- ดักจับ Value ที่ชื่อลงท้ายด้วย Block หรือตามชื่อใน List
-            if v:IsA("ValueBase") then
-                local isTarget = false
-                for _, name in pairs(WaterfallList) do
-                    if v.Name == name then isTarget = true break end
-                end
-
-                if isTarget and not v:GetAttribute("MonMonitored") then
-                    v:SetAttribute("MonMonitored", true)
-                    local lastValue = v.Value
-                    v.Changed:Connect(function(newValue)
-                        if tonumber(newValue) and newValue > lastValue then
-                            local diff = newValue - lastValue
-                            if purchaseQueue[v.Name] then
-                                purchaseQueue[v.Name].bought = purchaseQueue[v.Name].bought + diff
-                                purchaseQueue[v.Name].total = newValue
-                            else
-                                purchaseQueue[v.Name] = {bought = diff, total = newValue}
-                            end
-                            if not isWaiting then
-                                isWaiting = true
-                                task.delay(waitTime, SendSummaryLog)
-                            end
-                        end
-                        lastValue = newValue
-                    end)
-                end
-            end
-        end
-        task.wait(10) -- สแกนหา Value ใหม่ๆ ทุก 10 วิ
-    end
-end)
-
--- ==========================================
--- [[ Tab 2: Auto Buy (Real Time Sync) ]]
--- ==========================================
-local BuyTab = Window:CreateTab("Auto Buy", 4483362458)
-
-BuyTab:CreateToggle({
-   Name = "Auto Buy + Smart Logger (Real Time)",
-   Flag = "BuyAll_Toggle",
-   Callback = function(V) 
-      _G.BAll = V 
-      while _G.BAll do 
-         local realMinute = tonumber(os.date("%M"))
-         if realMinute and (realMinute % 5 == 0) then
-            Rayfield:Notify({Title = "Shop Reset!", Content = "เริ่มกวาดของและบันทึกยอด...", Duration = 3})
-            repeat
-               if not _G.BAll then break end
-               for _, n in pairs(WaterfallList) do 
-                  pcall(function() game:GetService("ReplicatedStorage").Network.Client.PurchaseMaxItems:InvokeServer(n, 999) end) 
-               end
-               task.wait(1.5)
-            until tonumber(os.date("%M")) ~= realMinute or not _G.BAll
-            task.wait(10)
-         end
-         task.wait(1)
-      end 
-   end,
-})
-
--- ==========================================
--- [[ Tab 4: Misc ]]
--- ==========================================
-local MiscTab = Window:CreateTab("Misc", 4483362458)
-MiscTab:CreateInput({
-   Name = "Webhook URL",
-   PlaceholderText = "วาง Link แล้วกด Enter",
-   Callback = function(T) Config.WebhookURL = T end,
-})
-MiscTab:CreateButton({
-   Name = "🧪 Test Log (Sample)",
-   Callback = function()
-      purchaseQueue["PinnacleBlock"] = {bought = 5, total = 100}
-      purchaseQueue["CommonBlock"] = {bought = 999, total = 50000}
-      SendSummaryLog()
-   end,
-})
-
-Rayfield:LoadConfiguration()
+-- [[ ระบบ Monitor และ Auto Buy ส่วนที่เหลือใช้เหมือนเดิมครับพี่ ]]
+-- ... (ก๊อปส่วน Monitor กับ Tab ต่างๆ จาก V11.5 มาใส่ได้เลย) ...
