@@ -1,18 +1,32 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "MonHub | Block Master V11.3",
-   LoadingTitle = "Real World Time Protocol...",
-   LoadingSubtitle = "No More UI Dependency",
+   Name = "MonHub | Block Master V11.3.2",
+   LoadingTitle = "Inventory Tracking System...",
+   LoadingSubtitle = "V11.3 + Quantity Tracker",
    ConfigurationSaving = { Enabled = true, FolderName = "MonHubConfigs", FileName = "BlockMaster_Save" }
 })
 
--- [[ DATA LISTS - คงเดิม ]]
 local WaterfallList = { "PinnacleBlock", "VerdictBlock", "HellcoreBlock", "DoomBlock", "BloodcodeBlock", "VortexBlock", "VercaBlock", "AnomalyBlock", "PhantomBlock", "CelestialEmperorBlock", "RadiantBlock", "AetherialBlock", "TheEndBlock", "KingsMantleBlock", "ToxicReactorBlock", "MoltenCoreBlock", "OuroborosBlock", "KingSunBlock", "InfinityBlock", "TimeBenderBlock", "BrambleBlock", "MagicBlock", "HeavenlyBlock", "DevilBlock", "AscendantBlock", "QuantumBlock", "GalaxyBlock", "MythicBlock", "LegendaryBlock", "EpicBlock", "RareBlock", "UncommonBlock", "CommonBlock" }
 local Config = { WebhookURL = "" }
 
--- [[ Webhook Function - ตัวที่พี่กด Test แล้วผ่าน ]]
-local function SendSummaryWebhook(items, refreshTime)
+-- [[ ฟังก์ชันดึงจำนวนของที่มีอยู่ปัจจุบัน ]]
+local function GetCurrentAmount(itemName)
+    local amount = 0
+    pcall(function()
+        local inv = game.Players.LocalPlayer.PlayerGui.Main.DiceContainer.Inventory.Scroll
+        local itemFrame = inv:FindFirstChild(itemName)
+        if itemFrame and itemFrame:FindFirstChild("Amount") then
+            -- ดึงตัวเลขจาก Text เช่น "x50" -> 50
+            local txt = itemFrame.Amount.Text:gsub("x", ""):gsub(",", "")
+            amount = tonumber(txt) or 0
+        end
+    end)
+    return amount
+end
+
+-- [[ Webhook Function ปรับปรุงใหม่ ]]
+local function SendSummaryWebhook(reportDetails, realTime)
     if Config.WebhookURL == "" or Config.WebhookURL == nil then return end
     local requestFunc = (syn and syn.request) or (http and http.request) or http_request or request
     if not requestFunc then return end
@@ -24,10 +38,10 @@ local function SendSummaryWebhook(items, refreshTime)
             Headers = {["Content-Type"] = "application/json"},
             Body = game:GetService("HttpService"):JSONEncode({
                 ["embeds"] = {{
-                    ["title"] = "🛍️ MonHub | สรุปยอดซื้อสำเร็จ",
-                    ["description"] = "รอบรีร้านค้า (เวลาจริง): **" .. refreshTime .. "**\n\n✅ ระบบสั่งกวาดซื้อเรียบร้อยแล้ว!",
-                    ["color"] = 0x00ffff,
-                    ["footer"] = {["text"] = "Sync by OS Time | " .. os.date("%X")}
+                    ["title"] = "🛍️ MonHub | สรุปยอดซื้อและคลังสินค้า",
+                    ["description"] = "⏱️ เวลา: **" .. realTime .. "**\n\n" .. reportDetails,
+                    ["color"] = 0xffaa00,
+                    ["footer"] = {["text"] = "Inventory Sync | " .. os.date("%X")}
                 }}
             })
         })
@@ -35,43 +49,61 @@ local function SendSummaryWebhook(items, refreshTime)
 end
 
 -- ==========================================
--- [[ Tab 2: Auto Buy (THE ULTIMATE FIX) ]]
+-- [[ Tab 2: Auto Buy (QUANTITY TRACKER) ]]
 -- ==========================================
 local BuyTab = Window:CreateTab("Auto Buy", 4483362458)
-BuyTab:CreateSection("ระบบกวาดร้านค้า (ใช้เวลาจริง)")
 
 BuyTab:CreateToggle({
-   Name = "Auto Buy + Force Log (Real Time)",
+   Name = "Auto Buy + รายละเอียดจำนวน (Real Time)",
    Flag = "BuyAll_Toggle",
    Callback = function(V) 
       _G.BAll = V 
       while _G.BAll do 
-         -- [[ ดึงนาทีจากเวลาจริงในเครื่องพี่เลย ไม่สน UI เกมแล้ว ]]
          local realMinute = tonumber(os.date("%M"))
          local realTimeStr = os.date("%X")
 
-         -- ถ้าเครื่องพี่นาทีลงท้ายด้วย 0 หรือ 5 (เช่น 21:00, 21:05)
          if realMinute and (realMinute % 5 == 0) then
-            Rayfield:Notify({Title = "Real Time Reset!", Content = "เริ่มกวาดของรอบนาทีที่ " .. realMinute, Duration = 3})
+            -- 1. บันทึกจำนวนก่อนซื้อ
+            local beforeBuy = {}
+            for _, name in pairs(WaterfallList) do
+                beforeBuy[name] = GetCurrentAmount(name)
+            end
+            
+            Rayfield:Notify({Title = "Shop Reset!", Content = "กำลังกวาดของและเช็คจำนวน...", Duration = 3})
 
-            -- กวาดของวนไปจนกว่าจะหมดนาทีนี้
+            -- 2. กวาดซื้อ
             repeat
                if not _G.BAll then break end
                for _, n in pairs(WaterfallList) do 
-                  pcall(function() 
-                      game:GetService("ReplicatedStorage").Network.Client.PurchaseMaxItems:InvokeServer(n, 999) 
-                  end) 
+                  game:GetService("ReplicatedStorage").Network.Client.PurchaseMaxItems:InvokeServer(n, 999) 
                end
                task.wait(1.5)
-               checkMin = tonumber(os.date("%M")) -- เช็คเวลาจริงเรื่อยๆ
-            until (checkMin ~= realMinute) or not _G.BAll
+            until tonumber(os.date("%M")) ~= realMinute or not _G.BAll
 
-            -- ส่ง Log ทันทีที่เข้านาทีที่ 1 หรือ 6
-            SendSummaryWebhook("สคริปต์ทำการสั่งซื้อ Blocks ทั้งหมดในร้านค้าเรียบร้อย!", realTimeStr)
+            -- 3. บันทึกจำนวนหลังซื้อ และคำนวณผลลัพธ์
+            local reportStr = "**รายการที่ได้เพิ่มในรอบนี้:**\n"
+            local hasAny = false
             
-            task.wait(10) -- พักกัน Loop รันซ้ำ
+            for _, name in pairs(WaterfallList) do
+                local current = GetCurrentAmount(name)
+                local diff = current - beforeBuy[name]
+                
+                if diff > 0 then
+                    reportStr = reportStr .. "🔸 **" .. name .. "**: ได้เพิ่ม +" .. diff .. " (รวมมี: " .. current .. ")\n"
+                    hasAny = true
+                end
+            end
+
+            if not hasAny then
+                reportStr = "❌ รอบนี้ไม่มีของใหม่เข้า (เงินอาจไม่พอหรือซื้อไม่ทัน)"
+            end
+
+            -- 4. ส่ง Log
+            SendSummaryWebhook(reportStr, realTimeStr)
+            
+            task.wait(10)
          end
-         task.wait(1) -- สแกนเวลาทุก 1 วินาที (ไม่กินสเปค)
+         task.wait(1)
       end 
    end,
 })
@@ -86,13 +118,8 @@ MiscTab:CreateInput({
    Callback = function(T) Config.WebhookURL = T end,
 })
 MiscTab:CreateButton({
-   Name = "🧪 Test Send Log",
+   Name = "🧪 Test Log (ตัวอย่าง)",
    Callback = function()
-      SendSummaryWebhook("ระบบ Test: ถ้าพี่เห็นข้อความนี้แปลว่า Log พร้อมทำงาน!", "TEST-MODE")
+      SendSummaryWebhook("🔸 **PinnacleBlock**: ได้เพิ่ม +5 (รวมมี: 120)\n🔸 **CommonBlock**: ได้เพิ่ม +999 (รวมมี: 5400)", "TEST-MODE")
    end,
 })
-
--- (ใส่ Tab อื่นๆ ของพี่ไว้เหมือนเดิมครับ)
-
-Rayfield:LoadConfiguration()
-Rayfield:Notify({Title = "V11.3 Final Fix", Content = "ระบบ Sync เวลาจริงเปิดใช้งานแล้ว!", Duration = 5})
