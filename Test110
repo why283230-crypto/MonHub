@@ -1,22 +1,19 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "MonHub | Block Master V11.2",
-   LoadingTitle = "Direct Inventory Sync...",
-   LoadingSubtitle = "Fixing Log Condition",
+   Name = "MonHub | Block Master V11.3",
+   LoadingTitle = "Real World Time Protocol...",
+   LoadingSubtitle = "No More UI Dependency",
    ConfigurationSaving = { Enabled = true, FolderName = "MonHubConfigs", FileName = "BlockMaster_Save" }
 })
 
--- [[ DATA LISTS - ห้ามแก้ ]]
+-- [[ DATA LISTS - คงเดิม ]]
 local WaterfallList = { "PinnacleBlock", "VerdictBlock", "HellcoreBlock", "DoomBlock", "BloodcodeBlock", "VortexBlock", "VercaBlock", "AnomalyBlock", "PhantomBlock", "CelestialEmperorBlock", "RadiantBlock", "AetherialBlock", "TheEndBlock", "KingsMantleBlock", "ToxicReactorBlock", "MoltenCoreBlock", "OuroborosBlock", "KingSunBlock", "InfinityBlock", "TimeBenderBlock", "BrambleBlock", "MagicBlock", "HeavenlyBlock", "DevilBlock", "AscendantBlock", "QuantumBlock", "GalaxyBlock", "MythicBlock", "LegendaryBlock", "EpicBlock", "RareBlock", "UncommonBlock", "CommonBlock" }
-local NormalList = { "CommonBlock", "UncommonBlock", "RareBlock", "EpicBlock", "LegendaryBlock", "MythicBlock", "GalaxyBlock", "QuantumBlock", "AscendantBlock", "DevilBlock", "HeavenlyBlock", "MagicBlock", "BrambleBlock", "TimeBenderBlock", "InfinityBlock", "KingSunBlock", "OuroborosBlock", "MoltenCoreBlock", "ToxicReactorBlock", "KingsMantleBlock", "TheEndBlock", "AetherialBlock", "RadiantBlock", "CelestialEmperorBlock", "PhantomBlock", "AnomalyBlock", "VercaBlock", "VortexBlock", "BloodcodeBlock", "DoomBlock", "HellcoreBlock", "VerdictBlock", "PinnacleBlock" }
-
 local Config = { WebhookURL = "" }
 
--- [[ Helper: Webhook Sender ]]
+-- [[ Webhook Function - ตัวที่พี่กด Test แล้วผ่าน ]]
 local function SendSummaryWebhook(items, refreshTime)
     if Config.WebhookURL == "" or Config.WebhookURL == nil then return end
-    local list = items
     local requestFunc = (syn and syn.request) or (http and http.request) or http_request or request
     if not requestFunc then return end
 
@@ -28,9 +25,9 @@ local function SendSummaryWebhook(items, refreshTime)
             Body = game:GetService("HttpService"):JSONEncode({
                 ["embeds"] = {{
                     ["title"] = "🛍️ MonHub | สรุปยอดซื้อสำเร็จ",
-                    ["description"] = "รอบรีร้านค้า: **" .. refreshTime .. "**\n\n" .. list,
+                    ["description"] = "รอบรีร้านค้า (เวลาจริง): **" .. refreshTime .. "**\n\n✅ ระบบสั่งกวาดซื้อเรียบร้อยแล้ว!",
                     ["color"] = 0x00ffff,
-                    ["footer"] = {["text"] = "MonHub | " .. os.date("%X")}
+                    ["footer"] = {["text"] = "Sync by OS Time | " .. os.date("%X")}
                 }}
             })
         })
@@ -38,33 +35,26 @@ local function SendSummaryWebhook(items, refreshTime)
 end
 
 -- ==========================================
--- [[ Tab 2: Auto Buy (FORCE LOG EDITION) ]]
+-- [[ Tab 2: Auto Buy (THE ULTIMATE FIX) ]]
 -- ==========================================
 local BuyTab = Window:CreateTab("Auto Buy", 4483362458)
-BuyTab:CreateSection("ระบบกวาดร้านค้า (Force Log)")
+BuyTab:CreateSection("ระบบกวาดร้านค้า (ใช้เวลาจริง)")
 
 BuyTab:CreateToggle({
-   Name = "Auto Buy All + Force Log",
+   Name = "Auto Buy + Force Log (Real Time)",
    Flag = "BuyAll_Toggle",
    Callback = function(V) 
       _G.BAll = V 
       while _G.BAll do 
-         local minute = nil
-         local fullTime = "00:00"
-         
-         -- [[ ดักจับเวลาจากหน้าจอ ]]
-         for _, v in pairs(game.Players.LocalPlayer.PlayerGui:GetDescendants()) do
-             if v:IsA("TextLabel") and v.Visible and v.Text:find(":") then
-                 local m = v.Text:match("(%d+):")
-                 if m then minute = tonumber(m); fullTime = v.Text; break end
-             end
-         end
+         -- [[ ดึงนาทีจากเวลาจริงในเครื่องพี่เลย ไม่สน UI เกมแล้ว ]]
+         local realMinute = tonumber(os.date("%M"))
+         local realTimeStr = os.date("%X")
 
-         -- [[ เริ่มทำงานนาทีที่ 0 หรือ 5 ]]
-         if minute and (minute % 5 == 0) then
-            Rayfield:Notify({Title = "Shop Reset!", Content = "เริ่มกวาดของรอบนาทีที่ " .. minute, Duration = 3})
+         -- ถ้าเครื่องพี่นาทีลงท้ายด้วย 0 หรือ 5 (เช่น 21:00, 21:05)
+         if realMinute and (realMinute % 5 == 0) then
+            Rayfield:Notify({Title = "Real Time Reset!", Content = "เริ่มกวาดของรอบนาทีที่ " .. realMinute, Duration = 3})
 
-            -- [[ วนลูปซื้อรัวๆ ตลอด 1 นาทีเต็ม ]]
+            -- กวาดของวนไปจนกว่าจะหมดนาทีนี้
             repeat
                if not _G.BAll then break end
                for _, n in pairs(WaterfallList) do 
@@ -72,25 +62,16 @@ BuyTab:CreateToggle({
                       game:GetService("ReplicatedStorage").Network.Client.PurchaseMaxItems:InvokeServer(n, 999) 
                   end) 
                end
-               task.wait(2) -- ป้องกันการส่ง Request ถี่เกินไป
-               
-               -- อัปเดตนาทีเพื่อเช็คว่าจบนาทีหรือยัง
-               local checkMin = nil
-               for _, v in pairs(game.Players.LocalPlayer.PlayerGui:GetDescendants()) do
-                   if v:IsA("TextLabel") and v.Visible and v.Text:find(":") then
-                       local m = v.Text:match("(%d+):")
-                       if m then checkMin = tonumber(m) break end
-                   end
-               end
-            until (checkMin ~= minute) or not _G.BAll
+               task.wait(1.5)
+               checkMin = tonumber(os.date("%M")) -- เช็คเวลาจริงเรื่อยๆ
+            until (checkMin ~= realMinute) or not _G.BAll
 
-            -- [[ พอนาทีเปลี่ยน (เช่น 05 -> 06) ให้ส่ง Log ทันที ]]
-            -- รอบนี้ผมตัดการเช็คไอเทมในกระเป๋าออก เพื่อ "บังคับ" ให้มันส่ง Log ครับ
-            SendSummaryWebhook("✅ ระบบได้ทำการกวาดซื้อทุกไอเทมในรายการเรียบร้อยแล้ว\n(ตรวจสอบจำนวน Block ใน Inventory ของพี่ได้เลยครับ)", "รอบนาทีที่ " .. minute .. " (" .. fullTime .. ")")
+            -- ส่ง Log ทันทีที่เข้านาทีที่ 1 หรือ 6
+            SendSummaryWebhook("สคริปต์ทำการสั่งซื้อ Blocks ทั้งหมดในร้านค้าเรียบร้อย!", realTimeStr)
             
-            task.wait(10) -- พัก 10 วินาทีเพื่อไม่ให้ลูปมันทำงานซ้อนในนาทีเดิม
+            task.wait(10) -- พักกัน Loop รันซ้ำ
          end
-         task.wait(1) 
+         task.wait(1) -- สแกนเวลาทุก 1 วินาที (ไม่กินสเปค)
       end 
    end,
 })
@@ -111,7 +92,7 @@ MiscTab:CreateButton({
    end,
 })
 
--- [[ แท็บอื่นๆ (Roll, Trade, Upgrade) ใส่ไว้เหมือนเดิมครับพี่ ]]
+-- (ใส่ Tab อื่นๆ ของพี่ไว้เหมือนเดิมครับ)
 
 Rayfield:LoadConfiguration()
-Rayfield:Notify({Title = "V11.2 Precision", Content = "ปรับปรุงระบบ Log สำหรับ Block/Dice เรียบร้อย!", Duration = 5})
+Rayfield:Notify({Title = "V11.3 Final Fix", Content = "ระบบ Sync เวลาจริงเปิดใช้งานแล้ว!", Duration = 5})
