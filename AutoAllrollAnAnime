@@ -1,199 +1,186 @@
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+-- [[ MonHub | V13.8 - ใช้ Webhook Logic ล่าสุด + UI กางออกถาวร ]]
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
+local HttpService = game:GetService("HttpService")
+local player = game.Players.LocalPlayer
 
-local Window = Rayfield:CreateWindow({
-   Name = "MonHub | Block Master V11.7",
-   LoadingTitle = "Ultimate System Restoration...",
-   LoadingSubtitle = "V9.0 Functions + Sorted Webhook",
-   ConfigurationSaving = { Enabled = true, FolderName = "MonHubConfigs", FileName = "BlockMaster_Save" }
+local Window = WindUI:CreateWindow({
+    Title = "MonHub | Block Master V13.8",
+    Icon = "rbxassetid://10734835153",
+    Author = "Suriya Janthra",
+    Folder = "MonHubConfigs"
 })
 
 -- [[ DATA LISTS ]]
-local WaterfallList = { 
-    "PinnacleBlock", "VerdictBlock", "HellcoreBlock", "DoomBlock", "BloodcodeBlock",
-    "VortexBlock", "VercaBlock", "AnomalyBlock", "PhantomBlock", "CelestialEmperorBlock",
-    "RadiantBlock", "AetherialBlock", "TheEndBlock", "KingsMantleBlock", "ToxicReactorBlock",
-    "MoltenCoreBlock", "OuroborosBlock", "KingSunBlock", "InfinityBlock", "TimeBenderBlock",
-    "BrambleBlock", "MagicBlock", "HeavenlyBlock", "DevilBlock", "AscendantBlock",
-    "QuantumBlock", "GalaxyBlock", "MythicBlock", "LegendaryBlock", "EpicBlock",
-    "RareBlock", "UncommonBlock", "CommonBlock"
-}
-
-local NormalList = { 
-    "CommonBlock", "UncommonBlock", "RareBlock", "EpicBlock", "LegendaryBlock",
-    "MythicBlock", "GalaxyBlock", "QuantumBlock", "AscendantBlock", "DevilBlock",
-    "HeavenlyBlock", "MagicBlock", "BrambleBlock", "TimeBenderBlock", "InfinityBlock",
-    "KingSunBlock", "OuroborosBlock", "MoltenCoreBlock", "ToxicReactorBlock", "KingsMantleBlock",
-    "TheEndBlock", "AetherialBlock", "RadiantBlock", "CelestialEmperorBlock", "PhantomBlock",
-    "AnomalyBlock", "VercaBlock", "VortexBlock", "BloodcodeBlock", "DoomBlock",
-    "HellcoreBlock", "VerdictBlock", "PinnacleBlock"
-}
-
+local WaterfallList = { "PinnacleBlock", "VerdictBlock", "HellcoreBlock", "DoomBlock", "BloodcodeBlock", "VortexBlock", "VercaBlock", "AnomalyBlock", "PhantomBlock", "CelestialEmperorBlock", "RadiantBlock", "AetherialBlock", "TheEndBlock", "KingsMantleBlock", "ToxicReactorBlock", "MoltenCoreBlock", "OuroborosBlock", "KingSunBlock", "InfinityBlock", "TimeBenderBlock", "BrambleBlock", "MagicBlock", "HeavenlyBlock", "DevilBlock", "AscendantBlock", "QuantumBlock", "GalaxyBlock", "MythicBlock", "LegendaryBlock", "EpicBlock", "RareBlock", "UncommonBlock", "CommonBlock" }
+local NormalList = { "CommonBlock", "UncommonBlock", "RareBlock", "EpicBlock", "LegendaryBlock", "MythicBlock", "GalaxyBlock", "QuantumBlock", "AscendantBlock", "DevilBlock", "HeavenlyBlock", "MagicBlock", "BrambleBlock", "TimeBenderBlock", "InfinityBlock", "KingSunBlock", "OuroborosBlock", "MoltenCoreBlock", "ToxicReactorBlock", "KingsMantleBlock", "TheEndBlock", "AetherialBlock", "RadiantBlock", "CelestialEmperorBlock", "PhantomBlock", "AnomalyBlock", "VercaBlock", "VortexBlock", "BloodcodeBlock", "DoomBlock", "HellcoreBlock", "VerdictBlock", "PinnacleBlock" }
 local PetEggs = { "Basic", "Coconut", "Crocodile", "Yeti", "Cupcake", "GoldenBasic" }
 
--- [[ Global States & Log Engine ]]
-local Config = { ManualTarget = "", SelectedBuyList = {}, SelectedEgg = "", SelectedPlot = "1", WebhookURL = "" }
+-- [[ 1. NEW WEBHOOK LOGIC (ยกชุดจากที่พี่ส่งมา) ]]
+local webhookURL = "ใส่ของตัวเอง" -- จะถูกทับด้วยค่าจาก UI
 local purchaseQueue = {}
 local isWaiting = false
-local waitTime = 2 
-local RarityOrder = {}
-for i, name in ipairs(WaterfallList) do RarityOrder[name] = i end
 
 local function formatNumber(n)
     n = tonumber(n) or 0
-    if n >= 1000000 then return string.format("%.1fm", n/1000000):gsub("%.0m", "m")
-    elseif n >= 1000 then return string.format("%.1fk", n/1000):gsub("%.0k", "k")
-    else return tostring(n) end
+    if n == 0 then return "0" end
+    local s = {"", "K", "M", "B", "T", "Q", "Qi", "Sx", "Sp", "Oc", "No", "Dc"}
+    local i = math.floor(math.log10(math.abs(n))/3)
+    if i < 1 then return tostring(math.floor(n)) end
+    return string.format("%.2f%s", n/10^(i*3), s[i+1]):gsub("%.00", "")
 end
 
-local function SendSummaryLog()
-    if Config.WebhookURL == "" or Config.WebhookURL == nil then purchaseQueue = {}; isWaiting = false return end
+local function sendSummaryLog()
+    task.wait(0.5) 
     local sortedList = {}
-    for name, data in pairs(purchaseQueue) do table.insert(sortedList, {Name = name, Bought = data.bought, Total = data.total}) end
-    table.sort(sortedList, function(a, b) return (RarityOrder[a.Name] or 0) > (RarityOrder[b.Name] or 0) end)
+    for name, data in pairs(purchaseQueue) do
+        table.insert(sortedList, {
+            name = name,
+            bought = data.bought,
+            totalStock = data.instance.Value
+        })
+    end
+
+    -- เรียงลำดับจาก สต็อกรวมน้อย -> มาก
+    table.sort(sortedList, function(a, b) return a.totalStock < b.totalStock end)
+
     local report = ""
-    for _, item in ipairs(sortedList) do report = report .. "🛒 **" .. item.Name .. "**: +" .. item.Bought .. " (รวม: `" .. formatNumber(item.Total) .. "`)\n" end
-    local payload = game:GetService("HttpService"):JSONEncode({
+    for i, data in ipairs(sortedList) do
+        report = report .. string.format("%d. **%s**: `+%s` | รวม: `%s`\n", i, data.name, formatNumber(data.bought), formatNumber(data.totalStock))
+    end
+
+    if report == "" or webhookURL == "" or webhookURL == "ใส่ของตัวเอง" then isWaiting = false return end
+
+    local payload = HttpService:JSONEncode({
         ["embeds"] = {{
-            ["title"] = "🛍️ MonHub | สรุปยอดรอบนี้",
+            ["title"] = "📦 MonHub | รายงานสต็อก (น้อย ➔ มาก)",
             ["description"] = report,
-            ["color"] = 0x32cd32,
-            ["footer"] = {["text"] = "Player: " .. game.Players.LocalPlayer.Name .. " | " .. os.date("%X")},
+            ["color"] = 16733952,
+            ["footer"] = {["text"] = "Player: " .. player.Name},
             ["timestamp"] = DateTime.now():ToIsoDate()
         }}
     })
-    local request = (syn and syn.request) or (http and http.request) or http_request or request
-    if request then request({Url = Config.WebhookURL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = payload}) end
-    purchaseQueue = {}; isWaiting = false
+
+    local request = (syn and syn.request) or (http and http.request) or http_request or (Fluxus and Fluxus.request)
+    if request then
+        request({Url = webhookURL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = payload})
+    else
+        pcall(function() HttpService:PostAsync(webhookURL, payload) end)
+    end
+    purchaseQueue = {}
+    isWaiting = false
 end
 
--- [[ Monitor System ]]
+-- [[ ระบบตรวจจับ (ใช้ Logic พี่ 100%) ]]
 task.spawn(function()
     while true do
-        local targetFolder = game.Players.LocalPlayer:FindFirstChild("leaderstats") or game.Players.LocalPlayer:FindFirstChild("Data") or game.Players.LocalPlayer
-        for _, v in ipairs(targetFolder:GetDescendants()) do
-            if v:IsA("ValueBase") then
-                local isTarget = false
-                for _, name in pairs(WaterfallList) do if v.Name == name then isTarget = true break end end
-                if isTarget and not v:GetAttribute("MonMonitored") then
+        for _, v in ipairs(player:GetDescendants()) do
+            if v:IsA("ValueBase") and v.Name:lower():find("block") then
+                if not v:GetAttribute("MonMonitored") then
                     v:SetAttribute("MonMonitored", true)
                     local lastValue = v.Value
                     v.Changed:Connect(function(newValue)
-                        if v:IsDescendantOf(game.Players.LocalPlayer) and tonumber(newValue) and newValue > lastValue then
+                        if newValue > lastValue then
                             local diff = newValue - lastValue
-                            if purchaseQueue[v.Name] then purchaseQueue[v.Name].bought = purchaseQueue[v.Name].bought + diff; purchaseQueue[v.Name].total = newValue
-                            else purchaseQueue[v.Name] = {bought = diff, total = newValue} end
-                            if not isWaiting then isWaiting = true; task.delay(waitTime, SendSummaryLog) end
+                            if not purchaseQueue[v.Name] then
+                                purchaseQueue[v.Name] = {bought = 0, instance = v}
+                            end
+                            purchaseQueue[v.Name].bought = purchaseQueue[v.Name].bought + diff
+                            if not isWaiting then
+                                isWaiting = true
+                                task.delay(2, sendSummaryLog)
+                            end
                         end
                         lastValue = newValue
                     end)
                 end
             end
         end
-        task.wait(10)
+        task.wait(5)
     end
 end)
 
--- [[ UI Overlay ]]
-local ScreenGui = Instance.new("ScreenGui", game:GetService("CoreGui"))
-local StatusFrame = Instance.new("Frame", ScreenGui); StatusFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15); StatusFrame.BackgroundTransparency = 0.3; StatusFrame.Position = UDim2.new(0, 10, 0, 10); StatusFrame.Size = UDim2.new(0, 280, 0, 80); StatusFrame.Visible = false; StatusFrame.BorderSizePixel = 0
-local MainStatus = Instance.new("TextLabel", StatusFrame); MainStatus.Size = UDim2.new(1, 0, 0, 40); MainStatus.Font = Enum.Font.GothamBold; MainStatus.TextColor3 = Color3.fromRGB(255, 255, 255); MainStatus.TextSize = 15; MainStatus.BackgroundTransparency = 1; MainStatus.Text = "Status: Idle"
-local ScanStatus = Instance.new("TextLabel", StatusFrame); ScanStatus.Position = UDim2.new(0, 0, 0, 40); ScanStatus.Size = UDim2.new(1, 0, 0, 30); ScanStatus.Font = Enum.Font.Gotham; ScanStatus.TextColor3 = Color3.fromRGB(0, 255, 255); ScanStatus.TextSize = 12; ScanStatus.BackgroundTransparency = 1; ScanStatus.Text = "Waiting..."
+-- [[ UI TABS ]]
+local RollTab = Window:Tab({ Title = "Roll Systems", Icon = "list" })
+local BuyTab = Window:Tab({ Title = "Auto Buy", Icon = "shopping-cart" })
+local UpTab = Window:Tab({ Title = "Pets & Upgrades", Icon = "arrow-up-circle" })
+local TradeTab = Window:Tab({ Title = "Trade & Warp", Icon = "refresh-cw" })
+local MiscTab = Window:Tab({ Title = "Misc & AFK", Icon = "settings" })
+local LogTab = Window:Tab({ Title = "Webhook Log", Icon = "message-square" })
 
--- ==========================================
--- [[ Tab 1: Roll Systems (Original V9.0) ]]
--- ==========================================
-local RollTab = Window:CreateTab("Roll Systems", 4483362458)
-RollTab:CreateSection("Smart Waterfall (ระบบลดระดับอัตโนมัติ)")
-RollTab:CreateToggle({
-   Name = "Enable Smart Waterfall (Auto Best)",
-   CurrentValue = false,
-   Flag = "SmartRoll_Toggle",
-   Callback = function(Value)
-      _G.SmartRollActive = Value; StatusFrame.Visible = Value
-      if not Value then pcall(function() game:GetService("ReplicatedStorage").Network.Client.ToggleAutoRoll:FireServer(false) end) return end
-      task.spawn(function()
-         while _G.SmartRollActive do
-            local player = game:GetService("Players").LocalPlayer
-            local inv = player.PlayerGui:FindFirstChild("Main") and player.PlayerGui.Main:FindFirstChild("DiceContainer") and player.PlayerGui.Main.DiceContainer:FindFirstChild("Inventory") and player.PlayerGui.Main.DiceContainer.Inventory:FindFirstChild("Scroll")
-            local bestFound = "None"
+-- [[ 1. ROLL SYSTEMS (กางออกถาวร) ]]
+local RollSec = RollTab:Section({ Title = "Smart & Manual Rolling", hideable = false })
+RollSec:Toggle({ Title = "Enable Smart Waterfall", Desc = "Auto Best Block Scan", Default = false, Callback = function(V)
+    _G.SmartRollActive = V
+    if not V then pcall(function() game:GetService("ReplicatedStorage").Network.Client.ToggleAutoRoll:FireServer(false) end) return end
+    task.spawn(function()
+        while _G.SmartRollActive do
+            local inv = player.PlayerGui:FindFirstChild("Main") and player.PlayerGui.Main.DiceContainer.Inventory.Scroll
             for _, blockName in ipairs(WaterfallList) do
-               if not _G.SmartRollActive then break end
-               local isAvailable = false
-               if inv then
-                  local uiItem = inv:FindFirstChild(blockName)
-                  if uiItem and uiItem.Visible == true then
-                     local lockOverlay = uiItem:FindFirstChild("Locked"); if not lockOverlay or lockOverlay.Visible == false then isAvailable = true end
-                  end
-               end
-               if isAvailable then
-                  bestFound = blockName
-                  pcall(function() game:GetService("ReplicatedStorage").Network.Client.RollBlock:InvokeServer(blockName); game:GetService("ReplicatedStorage").Network.Client.ToggleAutoRoll:FireServer(true) end)
-                  break
-               end
+                if not _G.SmartRollActive then break end
+                local item = inv and inv:FindFirstChild(blockName)
+                if item and item.Visible and (not item:FindFirstChild("Locked") or not item.Locked.Visible) then
+                    pcall(function() game:GetService("ReplicatedStorage").Network.Client.RollBlock:InvokeServer(blockName); game:GetService("ReplicatedStorage").Network.Client.ToggleAutoRoll:FireServer(true) end)
+                    break
+                end
             end
-            MainStatus.Text = "🚀 Locked: " .. bestFound; ScanStatus.Text = "Turbo Sync: " .. os.date("%X")
             task.wait(0.01)
-         end
-      end)
-   end,
+        end
+    end)
+end})
+RollSec:Dropdown({ Title = "Manual Target", Options = NormalList, Callback = function(O) _G.ManualTarget = O end })
+RollSec:Toggle({ Title = "Start Manual Roll", Default = false, Callback = function(V)
+    _G.ManualRoll = V while _G.ManualRoll do if _G.ManualTarget ~= "" then pcall(function() game:GetService("ReplicatedStorage").Network.Client.RollBlock:InvokeServer(_G.ManualTarget); game:GetService("ReplicatedStorage").Network.Client.ToggleAutoRoll:FireServer(true) end) end task.wait(0.1) end
+end})
+
+-- [[ 2. AUTO BUY (กางออกถาวร) ]]
+local BuySec = BuyTab:Section({ Title = "Mass Purchase", hideable = false })
+BuySec:Toggle({ Title = "Auto Buy ALL (33 Blocks)", Default = false, Callback = function(V)
+    _G.BAll = V while _G.BAll do for _, n in pairs(WaterfallList) do if not _G.BAll then break end pcall(function() game:GetService("ReplicatedStorage").Network.Client.PurchaseMaxItems:InvokeServer(n, 999) end) end task.wait(0.1) end
+end})
+
+-- [[ 3. PETS & UPGRADES (กางออกถาวร) ]]
+local PetSec = UpTab:Section({ Title = "Pets & Hatching", hideable = false })
+PetSec:Dropdown({ Title = "Select Egg", Options = PetEggs, Callback = function(O) _G.SelectedEgg = O end })
+PetSec:Toggle({ Title = "Auto Hatch Eggs", Default = false, Callback = function(V)
+    _G.Hatch = V while _G.Hatch do if _G.SelectedEgg ~= "" then pcall(function() game:GetService("ReplicatedStorage").Network.Client.Hatch:InvokeServer(_G.SelectedEgg, 1) end) end task.wait(0.1) end
+end})
+local PlotSec = UpTab:Section({ Title = "Plot Upgrades", hideable = false })
+PlotSec:Input({ Title = "Plot ID", Placeholder = "1", Callback = function(T) _G.SelectedPlot = T end })
+PlotSec:Toggle({ Title = "Auto Upgrade Plot", Default = false, Callback = function(V)
+    _G.UpS = V while _G.UpS do pcall(function() game:GetService("ReplicatedStorage").Network.Client.UpgradeBrainrot:InvokeServer(_G.SelectedPlot) end) task.wait(0.01) end
+end})
+
+-- [[ 4. TRADE & WARP (กางออกถาวร) ]]
+local TradeSec = TradeTab:Section({ Title = "Player Interaction", hideable = false })
+local TargetID = nil
+TradeSec:Input({ Title = "Player Search", Placeholder = "Name...", Callback = function(T)
+    for _, p in pairs(game.Players:GetPlayers()) do if p.Name:lower():sub(1, #T) == T:lower() then TargetID = p.UserId return end end
+end})
+TradeSec:Button({ Title = "🚀 Warp & Trade", Callback = function()
+    local t = game.Players:GetPlayerByUserId(TargetID)
+    if t and t.Character then
+        player.Character.HumanoidRootPart.CFrame = t.Character.HumanoidRootPart.CFrame * CFrame.new(0,0,3)
+        task.wait(0.3); game.ReplicatedStorage.Network.Client.Trade:FireServer("request", tonumber(TargetID))
+    end
+end})
+
+-- [[ 5. MISC & AFK (กางออกถาวร) ]]
+local MiscSec = MiscTab:Section({ Title = "Utilities", hideable = false })
+MiscSec:Toggle({ Title = "Anti-AFK", Default = true, Callback = function(V) _G.AntiAFK = V end })
+MiscSec:Toggle({ Title = "Auto Rebirth", Default = false, Callback = function(V)
+    _G.Rebirth = V while _G.Rebirth do pcall(function() game:GetService("ReplicatedStorage").Network.Client.Rebirth:InvokeServer() end) task.wait(1) end
+end})
+MiscSec:Toggle({ Title = "Auto Sell All (True)", Default = false, Callback = function(V)
+    _G.Sell = V while _G.Sell do pcall(function() game:GetService("ReplicatedStorage").Network.Client.SellAllEntities:InvokeServer(true) end) task.wait(1) end
+end})
+
+-- [[ 6. WEBHOOK LOG (กางออกถาวร) ]]
+local LogSec = LogTab:Section({ Title = "Discord Integration", hideable = false })
+LogSec:Input({ 
+    Title = "Webhook URL", 
+    Placeholder = "วาง Link Webhook ของพี่...", 
+    Callback = function(T) webhookURL = T end 
 })
+LogSec:Button({ Title = "🧪 Test Send Log", Callback = function() sendSummaryLog() end })
 
-RollTab:CreateSection("Manual Roll (ระบบสุ่มปกติ)")
-RollTab:CreateDropdown({ Name = "Select Block", Options = NormalList, Flag = "ManualTarget_Drop", Callback = function(Option) Config.ManualTarget = Option[1] end })
-RollTab:CreateToggle({ Name = "Start Manual Roll", Flag = "ManualRoll_Toggle", Callback = function(Value) _G.ManualRoll = Value while _G.ManualRoll do if Config.ManualTarget ~= "" then pcall(function() game:GetService("ReplicatedStorage").Network.Client.RollBlock:InvokeServer(Config.ManualTarget); game:GetService("ReplicatedStorage").Network.Client.ToggleAutoRoll:FireServer(true) end) end task.wait(0.1) end end })
-
--- ==========================================
--- [[ Tab 2: Auto Buy (Original V9.0 Logic) ]]
--- ==========================================
-local BuyTab = Window:CreateTab("Auto Buy", 4483362458)
-BuyTab:CreateSection("ระบบซื้อทั้งหมด")
-BuyTab:CreateToggle({ Name = "Auto Buy ALL (33 Blocks)", Flag = "BuyAll_Toggle", Callback = function(V) _G.BAll = V while _G.BAll do for _, n in pairs(WaterfallList) do if not _G.BAll then break end pcall(function() game:GetService("ReplicatedStorage").Network.Client.PurchaseMaxItems:InvokeServer(n, 999) end) end task.wait(0.1) end end })
-BuyTab:CreateSection("ระบบซื้อเฉพาะที่เลือก")
-BuyTab:CreateDropdown({ Name = "เลือกบล็อกที่จะซื้อ", Options = NormalList, MultipleOptions = true, Flag = "SelectedBuy_Drop", Callback = function(O) Config.SelectedBuyList = O end })
-BuyTab:CreateToggle({ Name = "Auto Buy Selected Max", Flag = "BuySelected_Toggle", Callback = function(V) _G.BSel = V while _G.BSel do for _, n in pairs(Config.SelectedBuyList) do if not _G.BSel then break end pcall(function() game:GetService("ReplicatedStorage").Network.Client.PurchaseMaxItems:InvokeServer(n, 999) end) end task.wait(0.1) end end })
-
--- ==========================================
--- [[ Tab 3: Pets & Upgrades (Original V9.0) ]]
--- ==========================================
-local UpTab = Window:CreateTab("Pets & Upgrades", 4483362458)
-UpTab:CreateSection("Auto Hatch Pets")
-UpTab:CreateDropdown({ Name = "Select Egg", Options = PetEggs, Flag = "Egg_Drop", Callback = function(O) Config.SelectedEgg = O[1] end })
-UpTab:CreateToggle({ Name = "Start Hatching (0.1s)", Flag = "Hatch_Toggle", Callback = function(V) _G.Hatch = V while _G.Hatch do if Config.SelectedEgg ~= "" then pcall(function() game:GetService("ReplicatedStorage").Network.Client.Hatch:InvokeServer(Config.SelectedEgg, 1) end) end task.wait(0.1) end end })
-UpTab:CreateSection("Turbo Upgrade System (0.01s)")
-UpTab:CreateInput({ Name = "Plot Number (1-100)", PlaceholderText = "1", Flag = "Plot_Input", Callback = function(T) Config.SelectedPlot = T end })
-UpTab:CreateToggle({ Name = "Upgrade Selected Plot", Flag = "UpSingle_Toggle", Callback = function(V) _G.UpS = V while _G.UpS do pcall(function() game:GetService("ReplicatedStorage").Network.Client.UpgradeBrainrot:InvokeServer(Config.SelectedPlot) end) task.wait(0.01) end end })
-UpTab:CreateToggle({ Name = "Upgrade ALL Plots", Flag = "UpAll_Toggle", Callback = function(V) _G.UpA = V while _G.UpA do for i=1,100 do if not _G.UpA then break end pcall(function() game:GetService("ReplicatedStorage").Network.Client.UpgradeBrainrot:InvokeServer(tostring(i)) end) end task.wait(0.01) end end })
-
--- ==========================================
--- [[ Tab 4: Webhook Log (New Added) ]]
--- ==========================================
-local LogTab = Window:CreateTab("Webhook Log", 4483362458)
-LogTab:CreateInput({ Name = "Webhook URL", PlaceholderText = "วาง Discord Webhook ที่นี่...", Callback = function(T) Config.WebhookURL = T end })
-LogTab:CreateButton({ Name = "🧪 Test Send Log", Callback = function() SendSummaryLog() end })
-
--- ==========================================
--- [[ Tab 5: Misc (Original V9.0) ]]
--- ==========================================
-local MiscTab = Window:CreateTab("Misc", 4483362458)
-MiscTab:CreateSection("Safety")
-MiscTab:CreateToggle({ Name = "Anti-AFK (กันหลุด)", Flag = "AntiAFK_Toggle", Callback = function(V) _G.AntiAFK = V if V then game:GetService("Players").LocalPlayer.Idled:Connect(function() if _G.AntiAFK then game:GetService("VirtualUser"):Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame); task.wait(1); game:GetService("VirtualUser"):Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame) end end) end end })
-MiscTab:CreateSection("Automation")
-MiscTab:CreateToggle({ Name = "Auto Rebirth", Flag = "AutoRebirth_Toggle", Callback = function(V) _G.AutoRebirth = V while _G.AutoRebirth do pcall(function() game:GetService("ReplicatedStorage").Network.Client.Rebirth:InvokeServer() end) task.wait(1) end end })
-MiscTab:CreateToggle({ Name = "Auto Equip Best Entities", Flag = "AutoEquip_Toggle", Callback = function(V) _G.Eq = V while _G.Eq do pcall(function() game:GetService("ReplicatedStorage").Network.Client.EquipBestEntities:InvokeServer() end) task.wait(1) end end })
-MiscTab:CreateSection("Sell System")
-MiscTab:CreateToggle({ Name = "Auto Sell (True)", Flag = "SellT_Toggle", Callback = function(V) _G.ST = V while _G.ST do pcall(function() game:GetService("ReplicatedStorage").Network.Client.SellAllEntities:InvokeServer(true) end) task.wait(1) end end })
-MiscTab:CreateToggle({ Name = "Auto Sell (False)", Flag = "SellF_Toggle", Callback = function(V) _G.SF = V while _G.SF do pcall(function() game:GetService("ReplicatedStorage").Network.Client.SellAllEntities:InvokeServer(false) end) task.wait(1) end end })
-
--- ==========================================
--- [[ Tab 6: Trade & Warp (Original V9.0) ]]
--- ==========================================
-local TradeTab = Window:CreateTab("Trade & Warp", 4483362458)
-local SelectedPlayerID, SelectedPlayerObj = nil, nil
-local PlayerStatus = TradeTab:CreateLabel("Status: ⚪ Waiting for Input")
-local IDStatus = TradeTab:CreateLabel("ID: ⚪ None")
-TradeTab:CreateInput({ Name = "Search Player Name", PlaceholderText = "พิมพ์ชื่อเพื่อล็อคเป้าหมาย...", Callback = function(Text) for _, p in pairs(game.Players:GetPlayers()) do if p.Name:lower():sub(1, #Text) == Text:lower() then SelectedPlayerID = p.UserId; SelectedPlayerObj = p; PlayerStatus:Set("Status: ✅ Locked! (" .. p.Name .. ")"); IDStatus:Set("ID: " .. tostring(SelectedPlayerID)) return end end end })
-TradeTab:CreateButton({ Name = "📍 Target Nearest Player", Callback = function() local closest, dist = nil, math.huge for _, p in pairs(game.Players:GetPlayers()) do if p ~= game.Players.LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then local d = (game.Players.LocalPlayer.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude if d < dist then dist = d; closest = p end end end if closest then SelectedPlayerID = closest.UserId; SelectedPlayerObj = closest; PlayerStatus:Set("Status: ✅ Locked Nearest!"); IDStatus:Set("ID: " .. tostring(SelectedPlayerID)) end end })
-TradeTab:CreateButton({ Name = "🚀 Warp & Send Trade", Callback = function() if SelectedPlayerID and SelectedPlayerObj and SelectedPlayerObj.Character then pcall(function() game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = SelectedPlayerObj.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3) end); task.wait(0.3); pcall(function() game.ReplicatedStorage.Network.Client.Trade:FireServer("request", tonumber(SelectedPlayerID)) end) end end })
-
-Rayfield:LoadConfiguration()
-Rayfield:Notify({Title = "V11.7 Sorted Log", Content = "รวมระบบ Log เรียงลำดับเข้ากับฟังก์ชัน V9.0 เรียบร้อยครับพี่!", Duration = 5})
+WindUI:Notify({ Title = "MonHub V13.8 Full", Content = "Webhook ชุดใหม่พร้อมทำงานและกางหน้าต่างถาวรแล้วครับ!", Duration = 5 })
