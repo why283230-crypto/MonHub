@@ -40,7 +40,7 @@ local Config = {
     SelectedBuyList = {},
     SelectedEgg = "",
     SelectedPlot = "1",
-    WebhookURL = ""
+    WebhookURL = "" -- เก็บ URL Webhook
 }
 
 -- [[ UI Overlay ]]
@@ -216,7 +216,6 @@ MiscTab:CreateToggle({
 
 MiscTab:CreateSection("Automation")
 
--- [[ เพิ่มระบบ Auto Rebirth ตามคำขอ ]]
 MiscTab:CreateToggle({
     Name = "Auto Rebirth",
     Flag = "AutoRebirth_Toggle",
@@ -242,10 +241,9 @@ MiscTab:CreateToggle({ Name = "Auto Sell (True)", Flag = "SellT_Toggle", Callbac
 MiscTab:CreateToggle({ Name = "Auto Sell (False)", Flag = "SellF_Toggle", Callback = function(V) _G.SF = V while _G.SF do pcall(function() game:GetService("ReplicatedStorage").Network.Client.SellAllEntities:InvokeServer(false) end) task.wait(1) end end })
 
 -- ==========================================
--- [[ Tab 5: Trade & Warp (Added!) ]]
+-- [[ Tab 5: Trade & Warp ]]
 -- ==========================================
 local TradeTab = Window:CreateTab("Trade & Warp", 4483362458)
-
 local SelectedPlayerID = nil
 local SelectedPlayerObj = nil
 local Players = game:GetService("Players")
@@ -322,109 +320,85 @@ TradeTab:CreateButton({
 })
 
 -- ==========================================
--- [[ Tab 6: Inventory & Discord (New!) ]]
+-- [[ Tab 6: Inventory Webhook (Updated!) ]]
 -- ==========================================
-local InvTab = Window:CreateTab("Inventory Info", 4483362458)
-local PriceDatabase = {}
+local InvTab = Window:CreateTab("Inventory Webhook", 4483362458)
 local InvLabels = {}
 
--- [[ ฟังก์ชันสแกนหาราคา ]]
-local function BuildPriceMap()
-    local plots = workspace:FindFirstChild("Plots")
-    if plots then
-        for _, plot in pairs(plots:GetChildren()) do
-            local slots = plot:FindFirstChild("Slots")
-            if slots then
-                for _, slot in pairs(slots:GetChildren()) do
-                    for _, model in pairs(slot:GetChildren()) do
-                        if model:IsA("Model") and model:FindFirstChild("Head") then
-                            local tag = model.Head:FindFirstChild("PodiumTag")
-                            if tag and tag.Frame:FindFirstChild("CashPerSecond") then
-                                local entName = model:GetAttribute("EntityName") or model.Name
-                                PriceDatabase[entName] = tag.Frame.CashPerSecond.Text
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-end
-
--- [[ ฟังก์ชันส่ง Webhook ]]
-local function SendToDiscord()
-    if Config.WebhookURL == "" or not Config.WebhookURL:find("discord.com") then
-        Rayfield:Notify({Title = "Webhook Error", Content = "กรุณาใส่ Discord URL ให้ถูกต้อง!", Duration = 3})
-        return
-    end
-    
+-- [[ ฟังก์ชันหลัก: อ่านค่า Rarity และ Mutation จาก Backpack ]]
+local function GetInventoryData()
     local items = LP.Backpack:GetChildren()
-    local itemList = ""
-    for i, item in ipairs(items) do
-        if i > 20 then break end
-        local entName = item:GetAttribute("EntityName") or item.Name
-        local price = PriceDatabase[entName] or "No Data"
-        itemList = itemList .. string.format("📦 **%s** | 💰 Income: `%s`\n", entName, price)
+    local data = {}
+    for _, item in ipairs(items) do
+        local rarity = item:GetAttribute("Rarity") or "Unknown"
+        local name = item:GetAttribute("EntityName") or item.Name
+        local mutation = item:GetAttribute("Mutation") or "None"
+        
+        -- รูปแบบที่พี่ต้องการ: Rarity : Name Mutation
+        table.insert(data, string.format("**%s** : %s `%s`", rarity, name, mutation))
     end
-
-    local Data = {
-        ["embeds"] = {{
-            ["title"] = "📊 MonHub | Inventory Report",
-            ["description"] = "User: **" .. LP.Name .. "**",
-            ["color"] = tonumber(0x5865F2),
-            ["fields"] = { {["name"] = "Items in Backpack", ["value"] = itemList ~= "" and itemList or "None", ["inline"] = false} },
-            ["footer"] = { ["text"] = "Suriya Janthra Tech | " .. os.date("%X") }
-        }}
-    }
-
-    pcall(function()
-        local jsonData = game:GetService("HttpService"):JSONEncode(Data)
-        request({
-            Url = Config.WebhookURL,
-            Method = "POST",
-            Headers = {["Content-Type"] = "application/json"},
-            Body = jsonData
-        })
-    end)
+    return data
 end
 
-InvTab:CreateSection("Webhook Settings")
+InvTab:CreateSection("Discord Webhook Config")
 InvTab:CreateInput({
-   Name = "Discord Webhook URL",
-   PlaceholderText = "วาง URL ที่นี่...",
+   Name = "Webhook URL",
+   PlaceholderText = "วาง Link Discord ที่นี่...",
    Callback = function(T) Config.WebhookURL = T end,
 })
 
 InvTab:CreateButton({
-   Name = "📤 Send Inventory to Discord",
+   Name = "📤 Send Inventory Report",
    Callback = function()
-      SendToDiscord()
-      Rayfield:Notify({Title = "Webhook Sent", Content = "ส่งข้อมูลเข้า Discord เรียบร้อย!", Duration = 2})
+      if Config.WebhookURL == "" or not Config.WebhookURL:find("discord.com") then
+         Rayfield:Notify({Title = "Error", Content = "URL ไม่ถูกต้อง!", Duration = 3})
+         return
+      end
+      
+      local invData = GetInventoryData()
+      local content = table.concat(invData, "\n")
+      
+      local embed = {
+         ["title"] = "🎒 Inventory Report | " .. LP.Name,
+         ["description"] = content ~= "" and content or "ไม่มีของในกระเป๋า",
+         ["color"] = 0xFF5555,
+         ["footer"] = {["text"] = "Suriya Janthra Tech | " .. os.date("%X")}
+      }
+      
+      pcall(function()
+         request({
+            Url = Config.WebhookURL,
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = game:GetService("HttpService"):JSONEncode({["embeds"] = {embed}})
+         })
+      end)
+      Rayfield:Notify({Title = "Success", Content = "ส่งเข้า Discord แล้ว!", Duration = 2})
    end,
 })
 
-InvTab:CreateSection("--- My Backpack ---")
-local function RefreshInvUI()
-    BuildPriceMap()
+InvTab:CreateSection("--- My Backpack List ---")
+local function RefreshListUI()
     for _, v in pairs(InvLabels) do pcall(function() v:Set("") end) end
     local items = LP.Backpack:GetChildren()
     for i, item in ipairs(items) do
-        if i > 20 then break end
-        local entName = item:GetAttribute("EntityName") or item.Name
-        local bID = item:GetAttribute("BrainrotId") or "None"
-        local price = PriceDatabase[entName] or "Check Map..."
-        local txt = string.format("📦 %s | 💰 %s\n🆔 ID: %s", entName, price, tostring(bID):sub(1,8))
-        if InvLabels[i] then InvLabels[i]:Set(txt)
-        else InvLabels[i] = InvTab:CreateLabel(txt) end
+        if i > 25 then break end
+        local rarity = item:GetAttribute("Rarity") or "None"
+        local name = item:GetAttribute("EntityName") or item.Name
+        local mutation = item:GetAttribute("Mutation") or "None"
+        
+        local labelText = string.format("[%s] : %s (%s)", rarity, name, mutation)
+        if InvLabels[i] then InvLabels[i]:Set(labelText)
+        else InvLabels[i] = InvTab:CreateLabel(labelText) end
     end
 end
 
 InvTab:CreateButton({
-   Name = "🔄 Refresh Price & List",
-   Callback = function() RefreshInvUI() end,
+   Name = "🔄 Refresh List",
+   Callback = function() RefreshListUI() end,
 })
 
--- [[ โหลด Config และ แจ้งเตือน ]]
+-- [[ โหลด Config ]]
 Rayfield:LoadConfiguration()
-Rayfield:Notify({Title = "V9.0 Trade & Webhook Updated", Content = "ติดตั้งระบบ Inventory Webhook เรียบร้อย!", Duration = 5})
-task.spawn(RefreshInvUI)
+Rayfield:Notify({Title = "V9.0 Updated", Content = "ติดตั้งระบบ Rarity & Mutation เรียบร้อย!", Duration = 5})
+task.spawn(RefreshListUI)
