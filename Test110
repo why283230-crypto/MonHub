@@ -1,28 +1,28 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "MonHub | Block Master V11.3.3",
-   LoadingTitle = "Item Confirmation Active...",
-   LoadingSubtitle = "V11.3 + Confirmed Log",
+   Name = "MonHub | Block Master V11.4",
+   LoadingTitle = "Direct Inventory Access...",
+   LoadingSubtitle = "Fixing N/A and Missing Items",
    ConfigurationSaving = { Enabled = true, FolderName = "MonHubConfigs", FileName = "BlockMaster_Save" }
 })
 
 local WaterfallList = { "PinnacleBlock", "VerdictBlock", "HellcoreBlock", "DoomBlock", "BloodcodeBlock", "VortexBlock", "VercaBlock", "AnomalyBlock", "PhantomBlock", "CelestialEmperorBlock", "RadiantBlock", "AetherialBlock", "TheEndBlock", "KingsMantleBlock", "ToxicReactorBlock", "MoltenCoreBlock", "OuroborosBlock", "KingSunBlock", "InfinityBlock", "TimeBenderBlock", "BrambleBlock", "MagicBlock", "HeavenlyBlock", "DevilBlock", "AscendantBlock", "QuantumBlock", "GalaxyBlock", "MythicBlock", "LegendaryBlock", "EpicBlock", "RareBlock", "UncommonBlock", "CommonBlock" }
 local Config = { WebhookURL = "" }
 
--- [[ ฟังก์ชันดึงยอดรวม ]]
-local function GetTotal(itemName)
-    local total = "N/A"
+-- [[ ฟังก์ชันดึงจำนวนจาก Inventory โดยตรง (ไม่ผ่าน UI) ]]
+local function GetActualTotal(itemName)
+    local total = 0
     pcall(function()
-        local scroll = game.Players.LocalPlayer.PlayerGui.Main.DiceContainer.Inventory.Scroll
-        if scroll:FindFirstChild(itemName) and scroll[itemName]:FindFirstChild("Amount") then
-            total = scroll[itemName].Amount.Text:gsub("x", "")
+        -- พยายามดึงจากเครื่องมือในตัว (Dices/Inventory Data)
+        local invData = game:GetService("ReplicatedStorage").Network.Client.GetInventory:InvokeServer()
+        if invData and invData[itemName] then
+            total = invData[itemName]
         end
     end)
     return total
 end
 
--- [[ ฟังก์ชันส่ง Webhook ]]
 local function SendSummaryWebhook(report, realTime)
     if Config.WebhookURL == "" or Config.WebhookURL == nil then return end
     local requestFunc = (syn and syn.request) or (http and http.request) or http_request or request
@@ -35,10 +35,10 @@ local function SendSummaryWebhook(report, realTime)
             Headers = {["Content-Type"] = "application/json"},
             Body = game:GetService("HttpService"):JSONEncode({
                 ["embeds"] = {{
-                    ["title"] = "🛍️ MonHub | สรุปรายการซื้อสำเร็จ",
-                    ["description"] = "⏱️ เวลา: **" .. realTime .. "**\n\n" .. report,
-                    ["color"] = 0x00ff00,
-                    ["footer"] = {["text"] = "Confirmed Purchase | " .. os.date("%X")}
+                    ["title"] = "📦 MonHub | รายงานการกวาดซื้อถาวร",
+                    ["description"] = "⏱️ รอบเวลา: **" .. realTime .. "**\n\n" .. report,
+                    ["color"] = 0x5865F2,
+                    ["footer"] = {["text"] = "Inventory Direct Access | " .. os.date("%X")}
                 }}
             })
         })
@@ -51,7 +51,7 @@ end
 local BuyTab = Window:CreateTab("Auto Buy", 4483362458)
 
 BuyTab:CreateToggle({
-   Name = "Auto Buy + รายชื่อของที่ซื้อ (Real Time)",
+   Name = "Auto Buy + รายละเอียดถาวร (Real Time)",
    Flag = "BuyAll_Toggle",
    Callback = function(V) 
       _G.BAll = V 
@@ -60,30 +60,33 @@ BuyTab:CreateToggle({
          local realTimeStr = os.date("%X")
 
          if realMinute and (realMinute % 5 == 0) then
-            local boughtThisRound = {} 
+            local boughtItems = {} 
             
-            Rayfield:Notify({Title = "Shop Reset!", Content = "เริ่มกวาดซื้อและบันทึกรายชื่อ...", Duration = 3})
+            Rayfield:Notify({Title = "Shop Reset!", Content = "กำลังกวาดซื้อและบันทึกข้อมูล...", Duration = 3})
 
+            -- ลูปกวาดซื้อ
             repeat
                if not _G.BAll then break end
                for _, n in pairs(WaterfallList) do 
-                  local success = game:GetService("ReplicatedStorage").Network.Client.PurchaseMaxItems:InvokeServer(n, 999)
-                  if success then
-                      boughtThisRound[n] = true
+                  local res = game:GetService("ReplicatedStorage").Network.Client.PurchaseMaxItems:InvokeServer(n, 999)
+                  if res then
+                      boughtItems[n] = true
                   end
                end
                task.wait(1)
             until tonumber(os.date("%M")) ~= realMinute or not _G.BAll
 
+            -- สรุปรายการ
             local reportStr = "**✅ รายการที่กวาดซื้อสำเร็จ:**\n"
             local hasItem = false
-            for name, _ in pairs(boughtThisRound) do
-                reportStr = reportStr .. "🔹 " .. name .. " (ยอดรวมในรหัส: " .. GetTotal(name) .. ")\n"
+            for name, _ in pairs(boughtItems) do
+                local total = GetActualTotal(name)
+                reportStr = reportStr .. "⭐ **" .. name .. "** (มีทั้งหมดในไอดี: `" .. total .. "`)\n"
                 hasItem = true
             end
 
             if not hasItem then
-                reportStr = "❌ ไม่สามารถกวาดซื้อได้ (เงินอาจไม่พอสำหรับไอเทมใน List)"
+                reportStr = "❌ ไม่มีการซื้อสำเร็จ (เงินไม่พอหรือของซ้ำ)"
             end
 
             SendSummaryWebhook(reportStr, realTimeStr)
@@ -95,25 +98,20 @@ BuyTab:CreateToggle({
 })
 
 -- ==========================================
--- [[ Tab 4: Misc (Webhook Input อยู่ที่นี่ครับ) ]]
+-- [[ Tab 4: Misc ]]
 -- ==========================================
 local MiscTab = Window:CreateTab("Misc", 4483362458)
-
 MiscTab:CreateSection("Discord Webhook")
 MiscTab:CreateInput({
    Name = "Webhook URL",
    PlaceholderText = "วาง Link แล้วกด Enter",
-   Callback = function(T) 
-      Config.WebhookURL = T 
-      Rayfield:Notify({Title = "Webhook Saved", Content = "บันทึก Link เรียบร้อย!", Duration = 2})
-   end,
+   Callback = function(T) Config.WebhookURL = T end,
 })
-
 MiscTab:CreateButton({
-   Name = "🧪 Test Send Log",
+   Name = "🧪 Test Log",
    Callback = function()
-      SendSummaryWebhook("🔹 **PinnacleBlock** (ยอดรวม: 10)\n(นี่คือข้อความทดสอบ)", "TEST-MODE")
+      SendSummaryWebhook("⭐ **PinnacleBlock** (มีทั้งหมดในไอดี: `50`)\n(นี่คือตัวอย่าง Log ใหม่)", "TEST-MODE")
    end,
 })
 
--- แท็บอื่นๆ (Roll, Trade) สามารถใส่ต่อท้ายได้เลยครับ
+Rayfield:LoadConfiguration()
