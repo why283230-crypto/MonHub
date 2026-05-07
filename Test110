@@ -1,9 +1,9 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "MonHub | Block Master V11.6.1",
-   LoadingTitle = "Ultimate Collector System...",
-   LoadingSubtitle = "Fixing UI & Sorting Log",
+   Name = "MonHub | Block Master V11.6.2",
+   LoadingTitle = "Securing Personal Data...",
+   LoadingSubtitle = "Fixing Multi-player Bug & Sorting",
    ConfigurationSaving = { Enabled = true, FolderName = "MonHubConfigs", FileName = "BlockMaster_Save" }
 })
 
@@ -41,7 +41,7 @@ local function SendSummaryLog()
         table.insert(sortedList, {Name = name, Bought = data.bought, Total = data.total})
     end
 
-    -- เรียงจาก Common (เลขเยอะใน List) ไป Pinnacle (เลขน้อยใน List)
+    -- เรียงจาก Common (หาง่าย) ไป Pinnacle (หายากสุด)
     table.sort(sortedList, function(a, b)
         return (RarityOrder[a.Name] or 0) > (RarityOrder[b.Name] or 0)
     end)
@@ -57,7 +57,7 @@ local function SendSummaryLog()
 
     local payload = game:GetService("HttpService"):JSONEncode({
         ["embeds"] = {{
-            ["title"] = "🛍️ MonHub | รายงานการกวาดซื้อ (เรียงตามความหายาก)",
+            ["title"] = "🛍️ MonHub | รายงานการกวาดซื้อ (ส่วนตัว)",
             ["description"] = report,
             ["color"] = 0x32cd32,
             ["footer"] = {["text"] = "Player: " .. game.Players.LocalPlayer.Name .. " | " .. os.date("%X")},
@@ -74,10 +74,13 @@ local function SendSummaryLog()
     isWaiting = false
 end
 
--- [[ ระบบ Monitor ดักจับค่า Value ]]
+-- [[ ระบบ Monitor ดักจับค่าเฉพาะของตัวเอง (Fix: ป้องกันคนอื่น) ]]
 task.spawn(function()
     while true do
-        for _, v in ipairs(game.Players.LocalPlayer:GetDescendants()) do
+        -- เน้นไปที่โฟลเดอร์ Data ของตัวเราเองเท่านั้น
+        local targetFolder = game.Players.LocalPlayer:FindFirstChild("leaderstats") or game.Players.LocalPlayer:FindFirstChild("Data") or game.Players.LocalPlayer
+        
+        for _, v in ipairs(targetFolder:GetDescendants()) do
             if v:IsA("ValueBase") then
                 local isTarget = false
                 for _, name in pairs(WaterfallList) do
@@ -88,17 +91,20 @@ task.spawn(function()
                     v:SetAttribute("MonMonitored", true)
                     local lastValue = v.Value
                     v.Changed:Connect(function(newValue)
-                        if tonumber(newValue) and newValue > lastValue then
-                            local diff = newValue - lastValue
-                            if purchaseQueue[v.Name] then
-                                purchaseQueue[v.Name].bought = purchaseQueue[v.Name].bought + diff
-                                purchaseQueue[v.Name].total = newValue
-                            else
-                                purchaseQueue[v.Name] = {bought = diff, total = newValue}
-                            end
-                            if not isWaiting then
-                                isWaiting = true
-                                task.delay(waitTime, SendSummaryLog)
+                        -- ตรวจสอบให้ชัวร์ว่ายังเป็นของตัวเราเอง (LocalPlayer)
+                        if v:IsDescendantOf(game.Players.LocalPlayer) then
+                            if tonumber(newValue) and newValue > lastValue then
+                                local diff = newValue - lastValue
+                                if purchaseQueue[v.Name] then
+                                    purchaseQueue[v.Name].bought = purchaseQueue[v.Name].bought + diff
+                                    purchaseQueue[v.Name].total = newValue
+                                else
+                                    purchaseQueue[v.Name] = {bought = diff, total = newValue}
+                                end
+                                if not isWaiting then
+                                    isWaiting = true
+                                    task.delay(waitTime, SendSummaryLog)
+                                end
                             end
                         end
                         lastValue = newValue
@@ -106,7 +112,7 @@ task.spawn(function()
                 end
             end
         end
-        task.wait(10)
+        task.wait(10) -- สแกนหาตัวแปรใหม่ๆ ทุก 10 วิ
     end
 end)
 
@@ -122,8 +128,9 @@ BuyTab:CreateToggle({
       _G.BAll = V 
       while _G.BAll do 
          local realMinute = tonumber(os.date("%M"))
+         -- ทำงานทุกนาทีที่ 0 และ 5 (เวลาจริง)
          if realMinute and (realMinute % 5 == 0) then
-            Rayfield:Notify({Title = "Shop Reset!", Content = "เริ่มกวาดของและบันทึกยอด...", Duration = 3})
+            Rayfield:Notify({Title = "Shop Reset!", Content = "เริ่มกวาดของและบันทึกยอดส่วนตัว...", Duration = 3})
             repeat
                if not _G.BAll then break end
                for _, n in pairs(WaterfallList) do 
@@ -145,7 +152,7 @@ MiscTab:CreateInput({
    Callback = function(T) Config.WebhookURL = T end,
 })
 MiscTab:CreateButton({
-   Name = "🧪 Test Log (Sample)",
+   Name = "🧪 Test Send Log (Sample)",
    Callback = function()
       purchaseQueue["PinnacleBlock"] = {bought = 1, total = 5}
       purchaseQueue["CommonBlock"] = {bought = 500, total = 10000}
