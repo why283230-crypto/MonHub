@@ -1,95 +1,123 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "MonHub | Block Master V11.4",
-   LoadingTitle = "Direct Inventory Access...",
-   LoadingSubtitle = "Fixing N/A and Missing Items",
+   Name = "MonHub | Block Master V11.5",
+   LoadingTitle = "Integrating Ultimate Logger...",
+   LoadingSubtitle = "V11.3 Stability + V11.5 Logic",
    ConfigurationSaving = { Enabled = true, FolderName = "MonHubConfigs", FileName = "BlockMaster_Save" }
 })
 
+-- [[ DATA LISTS ]]
 local WaterfallList = { "PinnacleBlock", "VerdictBlock", "HellcoreBlock", "DoomBlock", "BloodcodeBlock", "VortexBlock", "VercaBlock", "AnomalyBlock", "PhantomBlock", "CelestialEmperorBlock", "RadiantBlock", "AetherialBlock", "TheEndBlock", "KingsMantleBlock", "ToxicReactorBlock", "MoltenCoreBlock", "OuroborosBlock", "KingSunBlock", "InfinityBlock", "TimeBenderBlock", "BrambleBlock", "MagicBlock", "HeavenlyBlock", "DevilBlock", "AscendantBlock", "QuantumBlock", "GalaxyBlock", "MythicBlock", "LegendaryBlock", "EpicBlock", "RareBlock", "UncommonBlock", "CommonBlock" }
 local Config = { WebhookURL = "" }
 
--- [[ ฟังก์ชันดึงจำนวนจาก Inventory โดยตรง (ไม่ผ่าน UI) ]]
-local function GetActualTotal(itemName)
-    local total = 0
-    pcall(function()
-        -- พยายามดึงจากเครื่องมือในตัว (Dices/Inventory Data)
-        local invData = game:GetService("ReplicatedStorage").Network.Client.GetInventory:InvokeServer()
-        if invData and invData[itemName] then
-            total = invData[itemName]
+-- [[ ตัวแปรสำหรับระบบรวมยอด (Queue System) ]]
+local purchaseQueue = {}
+local isWaiting = false
+local waitTime = 2 
+
+-- [[ ฟังก์ชันย่อตัวเลข ]]
+local function formatNumber(n)
+    n = tonumber(n) or 0
+    if n >= 1000000 then return string.format("%.1fm", n/1000000):gsub("%.0m", "m")
+    elseif n >= 1000 then return string.format("%.1fk", n/1000):gsub("%.0k", "k")
+    else return tostring(n) end
+end
+
+-- [[ ฟังก์ชันส่ง Log สรุป (ตัวที่พี่ส่งมา) ]]
+local function SendSummaryLog()
+    if Config.WebhookURL == "" or Config.WebhookURL == nil then 
+        purchaseQueue = {}
+        isWaiting = false
+        return 
+    end
+    
+    local report = ""
+    local hasData = false
+    for name, data in pairs(purchaseQueue) do
+        report = report .. "🛒 **" .. name .. "**: +" .. data.bought .. " (รวม: `" .. formatNumber(data.total) .. "`)\n"
+        hasData = true
+    end
+
+    if not hasData then return end
+
+    local payload = game:GetService("HttpService"):JSONEncode({
+        ["embeds"] = {{
+            ["title"] = "🛍️ MonHub | รายงานการกวาดซื้อสรุปยอด",
+            ["description"] = report,
+            ["color"] = 0x32cd32,
+            ["footer"] = {["text"] = "Player: " .. game.Players.LocalPlayer.Name .. " | Time: " .. os.date("%X")},
+            ["timestamp"] = DateTime.now():ToIsoDate()
+        }}
+    })
+    
+    local request = (syn and syn.request) or (http and http.request) or http_request or request
+    if request then
+        request({Url = Config.WebhookURL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = payload})
+    end
+
+    purchaseQueue = {}
+    isWaiting = false
+end
+
+-- [[ ระบบ Monitor ดักจับค่า Value (จากโค้ดของพี่) ]]
+task.spawn(function()
+    while true do
+        for _, v in ipairs(game.Players.LocalPlayer:GetDescendants()) do
+            -- ดักจับ Value ที่ชื่อลงท้ายด้วย Block หรือตามชื่อใน List
+            if v:IsA("ValueBase") then
+                local isTarget = false
+                for _, name in pairs(WaterfallList) do
+                    if v.Name == name then isTarget = true break end
+                end
+
+                if isTarget and not v:GetAttribute("MonMonitored") then
+                    v:SetAttribute("MonMonitored", true)
+                    local lastValue = v.Value
+                    v.Changed:Connect(function(newValue)
+                        if tonumber(newValue) and newValue > lastValue then
+                            local diff = newValue - lastValue
+                            if purchaseQueue[v.Name] then
+                                purchaseQueue[v.Name].bought = purchaseQueue[v.Name].bought + diff
+                                purchaseQueue[v.Name].total = newValue
+                            else
+                                purchaseQueue[v.Name] = {bought = diff, total = newValue}
+                            end
+                            if not isWaiting then
+                                isWaiting = true
+                                task.delay(waitTime, SendSummaryLog)
+                            end
+                        end
+                        lastValue = newValue
+                    end)
+                end
+            end
         end
-    end)
-    return total
-end
-
-local function SendSummaryWebhook(report, realTime)
-    if Config.WebhookURL == "" or Config.WebhookURL == nil then return end
-    local requestFunc = (syn and syn.request) or (http and http.request) or http_request or request
-    if not requestFunc then return end
-
-    pcall(function()
-        requestFunc({
-            Url = Config.WebhookURL,
-            Method = "POST",
-            Headers = {["Content-Type"] = "application/json"},
-            Body = game:GetService("HttpService"):JSONEncode({
-                ["embeds"] = {{
-                    ["title"] = "📦 MonHub | รายงานการกวาดซื้อถาวร",
-                    ["description"] = "⏱️ รอบเวลา: **" .. realTime .. "**\n\n" .. report,
-                    ["color"] = 0x5865F2,
-                    ["footer"] = {["text"] = "Inventory Direct Access | " .. os.date("%X")}
-                }}
-            })
-        })
-    end)
-end
+        task.wait(10) -- สแกนหา Value ใหม่ๆ ทุก 10 วิ
+    end
+end)
 
 -- ==========================================
--- [[ Tab 2: Auto Buy ]]
+-- [[ Tab 2: Auto Buy (Real Time Sync) ]]
 -- ==========================================
 local BuyTab = Window:CreateTab("Auto Buy", 4483362458)
 
 BuyTab:CreateToggle({
-   Name = "Auto Buy + รายละเอียดถาวร (Real Time)",
+   Name = "Auto Buy + Smart Logger (Real Time)",
    Flag = "BuyAll_Toggle",
    Callback = function(V) 
       _G.BAll = V 
       while _G.BAll do 
          local realMinute = tonumber(os.date("%M"))
-         local realTimeStr = os.date("%X")
-
          if realMinute and (realMinute % 5 == 0) then
-            local boughtItems = {} 
-            
-            Rayfield:Notify({Title = "Shop Reset!", Content = "กำลังกวาดซื้อและบันทึกข้อมูล...", Duration = 3})
-
-            -- ลูปกวาดซื้อ
+            Rayfield:Notify({Title = "Shop Reset!", Content = "เริ่มกวาดของและบันทึกยอด...", Duration = 3})
             repeat
                if not _G.BAll then break end
                for _, n in pairs(WaterfallList) do 
-                  local res = game:GetService("ReplicatedStorage").Network.Client.PurchaseMaxItems:InvokeServer(n, 999)
-                  if res then
-                      boughtItems[n] = true
-                  end
+                  pcall(function() game:GetService("ReplicatedStorage").Network.Client.PurchaseMaxItems:InvokeServer(n, 999) end) 
                end
-               task.wait(1)
+               task.wait(1.5)
             until tonumber(os.date("%M")) ~= realMinute or not _G.BAll
-
-            -- สรุปรายการ
-            local reportStr = "**✅ รายการที่กวาดซื้อสำเร็จ:**\n"
-            local hasItem = false
-            for name, _ in pairs(boughtItems) do
-                local total = GetActualTotal(name)
-                reportStr = reportStr .. "⭐ **" .. name .. "** (มีทั้งหมดในไอดี: `" .. total .. "`)\n"
-                hasItem = true
-            end
-
-            if not hasItem then
-                reportStr = "❌ ไม่มีการซื้อสำเร็จ (เงินไม่พอหรือของซ้ำ)"
-            end
-
-            SendSummaryWebhook(reportStr, realTimeStr)
             task.wait(10)
          end
          task.wait(1)
@@ -101,16 +129,17 @@ BuyTab:CreateToggle({
 -- [[ Tab 4: Misc ]]
 -- ==========================================
 local MiscTab = Window:CreateTab("Misc", 4483362458)
-MiscTab:CreateSection("Discord Webhook")
 MiscTab:CreateInput({
    Name = "Webhook URL",
    PlaceholderText = "วาง Link แล้วกด Enter",
    Callback = function(T) Config.WebhookURL = T end,
 })
 MiscTab:CreateButton({
-   Name = "🧪 Test Log",
+   Name = "🧪 Test Log (Sample)",
    Callback = function()
-      SendSummaryWebhook("⭐ **PinnacleBlock** (มีทั้งหมดในไอดี: `50`)\n(นี่คือตัวอย่าง Log ใหม่)", "TEST-MODE")
+      purchaseQueue["PinnacleBlock"] = {bought = 5, total = 100}
+      purchaseQueue["CommonBlock"] = {bought = 999, total = 50000}
+      SendSummaryLog()
    end,
 })
 
