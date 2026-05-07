@@ -1,10 +1,12 @@
--- [[ MonHub | V13.2 - Ultimate Full Suite ]]
+-- [[ MonHub | V13.5 - สคริปต์ตัวเต็ม รวมทุกฟังก์ชัน + UI กางออกถาวร ]]
 local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
+local HttpService = game:GetService("HttpService")
+local player = game.Players.LocalPlayer
 
 local Window = WindUI:CreateWindow({
-    Title = "MonHub | Block Master V13.2",
+    Title = "MonHub | Block Master V13.5",
     Icon = "rbxassetid://10734835153",
-    Author = "Suriya Janthra (Custom)",
+    Author = "Suriya Janthra",
     Folder = "MonHubConfigs"
 })
 
@@ -13,15 +15,14 @@ local WaterfallList = { "PinnacleBlock", "VerdictBlock", "HellcoreBlock", "DoomB
 local NormalList = { "CommonBlock", "UncommonBlock", "RareBlock", "EpicBlock", "LegendaryBlock", "MythicBlock", "GalaxyBlock", "QuantumBlock", "AscendantBlock", "DevilBlock", "HeavenlyBlock", "MagicBlock", "BrambleBlock", "TimeBenderBlock", "InfinityBlock", "KingSunBlock", "OuroborosBlock", "MoltenCoreBlock", "ToxicReactorBlock", "KingsMantleBlock", "TheEndBlock", "AetherialBlock", "RadiantBlock", "CelestialEmperorBlock", "PhantomBlock", "AnomalyBlock", "VercaBlock", "VortexBlock", "BloodcodeBlock", "DoomBlock", "HellcoreBlock", "VerdictBlock", "PinnacleBlock" }
 local PetEggs = { "Basic", "Coconut", "Crocodile", "Yeti", "Cupcake", "GoldenBasic" }
 
--- [[ Global States & Engine ]]
+-- [[ Global States & Webhook Logic ]]
 local Config = { ManualTarget = "", SelectedEgg = "", SelectedPlot = "1", WebhookURL = "" }
 local purchaseQueue = {}
 local isWaiting = false
-local waitTime = 3 
+local waitTime = 2 
 local RarityOrder = {}
 for i, name in ipairs(WaterfallList) do RarityOrder[name] = i end
 
--- [[ Webhook Reporting Engine ]]
 local function formatNumber(n)
     n = tonumber(n) or 0
     if n >= 1000000 then return string.format("%.1fm", n/1000000):gsub("%.0m", "m")
@@ -29,25 +30,23 @@ local function formatNumber(n)
     else return tostring(n) end
 end
 
-local function SendSummaryLog()
+local function sendSummaryLog()
     if Config.WebhookURL == "" or Config.WebhookURL == nil then purchaseQueue = {}; isWaiting = false return end
     local sortedList = {}
     for name, data in pairs(purchaseQueue) do table.insert(sortedList, {Name = name, Bought = data.bought, Total = data.total}) end
     table.sort(sortedList, function(a, b) return (RarityOrder[a.Name] or 0) > (RarityOrder[b.Name] or 0) end)
-    
     local report = ""
     for _, item in ipairs(sortedList) do report = report .. "🛒 **" .. item.Name .. "**: +" .. item.Bought .. " (รวม: `" .. formatNumber(item.Total) .. "`)\n" end
-    
-    local payload = game:GetService("HttpService"):JSONEncode({
+    local payload = HttpService:JSONEncode({
         ["embeds"] = {{
-            ["title"] = "🛍️ MonHub | สรุปยอดการซื้อ (Auto Log)",
+            ["title"] = "🛍️ MonHub | รายงานการซื้อสรุปยอด",
             ["description"] = report,
             ["color"] = 0x32cd32,
-            ["footer"] = {["text"] = "Player: " .. game.Players.LocalPlayer.Name .. " | " .. os.date("%X")},
+            ["footer"] = {["text"] = "Player: " .. player.Name},
             ["timestamp"] = DateTime.now():ToIsoDate()
         }}
     })
-    local request = (syn and syn.request) or (http and http.request) or http_request or request
+    local request = (syn and syn.request) or (http and http.request) or http_request or (Fluxus and Fluxus.request)
     if request then request({Url = Config.WebhookURL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = payload}) end
     purchaseQueue = {}; isWaiting = false
 end
@@ -55,12 +54,11 @@ end
 -- [[ Auto Monitor System ]]
 task.spawn(function()
     while true do
-        local stats = game.Players.LocalPlayer:FindFirstChild("leaderstats") or game.Players.LocalPlayer:FindFirstChild("Data") or game.Players.LocalPlayer
-        for _, v in ipairs(stats:GetDescendants()) do
+        for _, v in ipairs(player:GetDescendants()) do
             if v:IsA("ValueBase") then
-                local isTarget = false
-                for _, name in pairs(WaterfallList) do if v.Name == name then isTarget = true break end end
-                if isTarget and not v:GetAttribute("MonMonitored") then
+                local isBlock = false
+                for _, bn in pairs(WaterfallList) do if v.Name == bn then isBlock = true break end end
+                if isBlock and not v:GetAttribute("MonMonitored") then
                     v:SetAttribute("MonMonitored", true)
                     local lastVal = v.Value
                     v.Changed:Connect(function(newVal)
@@ -68,7 +66,7 @@ task.spawn(function()
                             local diff = newVal - lastVal
                             if purchaseQueue[v.Name] then purchaseQueue[v.Name].bought = purchaseQueue[v.Name].bought + diff; purchaseQueue[v.Name].total = newVal
                             else purchaseQueue[v.Name] = {bought = diff, total = newVal} end
-                            if not isWaiting then isWaiting = true; task.delay(waitTime, SendSummaryLog) end
+                            if not isWaiting then isWaiting = true; task.delay(waitTime, sendSummaryLog) end
                         end
                         lastVal = newVal
                     end)
@@ -79,22 +77,22 @@ task.spawn(function()
     end
 end)
 
--- [[ TABS SETUP ]]
+-- [[ UI TABS ]]
 local RollTab = Window:Tab({ Title = "Roll Systems", Icon = "list" })
 local BuyTab = Window:Tab({ Title = "Auto Buy", Icon = "shopping-cart" })
 local UpTab = Window:Tab({ Title = "Pets & Upgrades", Icon = "arrow-up-circle" })
 local TradeTab = Window:Tab({ Title = "Trade & Warp", Icon = "refresh-cw" })
-local MiscTab = Window:Tab({ Title = "Misc & Sell", Icon = "settings" })
+local MiscTab = Window:Tab({ Title = "Misc & AFK", Icon = "settings" })
 local LogTab = Window:Tab({ Title = "Webhook Log", Icon = "message-square" })
 
--- [[ 1. ROLL SYSTEMS ]]
-local RollSec = RollTab:Section({ Title = "Smart & Manual Roll", hideable = false })
-RollSec:Toggle({ Title = "Enable Smart Waterfall", Desc = "Auto Best Block Scan", Default = false, Callback = function(V)
+-- [[ 1. ROLL SYSTEMS (กางออกถาวร) ]]
+local RollSec = RollTab:Section({ Title = "Smart & Manual Rolling", hideable = false })
+RollSec:Toggle({ Title = "Enable Smart Waterfall", Desc = "สุ่มบล็อกที่ดีที่สุดให้อัตโนมัติ", Default = false, Callback = function(V)
     _G.SmartRollActive = V
     if not V then pcall(function() game:GetService("ReplicatedStorage").Network.Client.ToggleAutoRoll:FireServer(false) end) return end
     task.spawn(function()
         while _G.SmartRollActive do
-            local inv = game.Players.LocalPlayer.PlayerGui:FindFirstChild("Main") and game.Players.LocalPlayer.PlayerGui.Main.DiceContainer.Inventory.Scroll
+            local inv = player.PlayerGui:FindFirstChild("Main") and player.PlayerGui.Main.DiceContainer.Inventory.Scroll
             for _, blockName in ipairs(WaterfallList) do
                 if not _G.SmartRollActive then break end
                 local item = inv and inv:FindFirstChild(blockName)
@@ -107,56 +105,56 @@ RollSec:Toggle({ Title = "Enable Smart Waterfall", Desc = "Auto Best Block Scan"
         end
     end)
 end})
-RollSec:Dropdown({ Title = "Select Manual Block", Options = NormalList, Callback = function(O) Config.ManualTarget = O end })
-RollSec:Toggle({ Title = "Manual Roll Target", Default = false, Callback = function(V)
+RollSec:Dropdown({ Title = "Manual Target", Options = NormalList, Callback = function(O) Config.ManualTarget = O end })
+RollSec:Toggle({ Title = "Start Manual Roll", Default = false, Callback = function(V)
     _G.ManualRoll = V while _G.ManualRoll do if Config.ManualTarget ~= "" then pcall(function() game:GetService("ReplicatedStorage").Network.Client.RollBlock:InvokeServer(Config.ManualTarget); game:GetService("ReplicatedStorage").Network.Client.ToggleAutoRoll:FireServer(true) end) end task.wait(0.1) end
 end})
 
--- [[ 2. AUTO BUY ]]
-local BuySec = BuyTab:Section({ Title = "Purchase Automation", hideable = false })
+-- [[ 2. AUTO BUY (กางออกถาวร) ]]
+local BuySec = BuyTab:Section({ Title = "Mass Purchase", hideable = false })
 BuySec:Toggle({ Title = "Auto Buy ALL (33 Blocks)", Default = false, Callback = function(V)
     _G.BAll = V while _G.BAll do for _, n in pairs(WaterfallList) do if not _G.BAll then break end pcall(function() game:GetService("ReplicatedStorage").Network.Client.PurchaseMaxItems:InvokeServer(n, 999) end) end task.wait(0.1) end
 end})
 
--- [[ 3. PETS & UPGRADES ]]
-local PetSec = UpTab:Section({ Title = "Pets System", hideable = false })
-PetSec:Dropdown({ Title = "Select Pet Egg", Options = PetEggs, Callback = function(O) Config.SelectedEgg = O end })
-PetSec:Toggle({ Title = "Auto Hatch (0.1s)", Default = false, Callback = function(V)
+-- [[ 3. PETS & UPGRADES (กางออกถาวร) ]]
+local PetSec = UpTab:Section({ Title = "Pets & Hatching", hideable = false })
+PetSec:Dropdown({ Title = "Select Egg", Options = PetEggs, Callback = function(O) Config.SelectedEgg = O end })
+PetSec:Toggle({ Title = "Auto Hatch Eggs", Default = false, Callback = function(V)
     _G.Hatch = V while _G.Hatch do if Config.SelectedEgg ~= "" then pcall(function() game:GetService("ReplicatedStorage").Network.Client.Hatch:InvokeServer(Config.SelectedEgg, 1) end) end task.wait(0.1) end
 end})
-local UpSec = UpTab:Section({ Title = "Plot Upgrades", hideable = false })
-UpSec:Input({ Title = "Plot ID", Placeholder = "1", Callback = function(T) Config.SelectedPlot = T end })
-UpSec:Toggle({ Title = "Turbo Upgrade Plot", Default = false, Callback = function(V)
+local PlotSec = UpTab:Section({ Title = "Plot Upgrades", hideable = false })
+PlotSec:Input({ Title = "Plot ID", Placeholder = "1", Callback = function(T) Config.SelectedPlot = T end })
+PlotSec:Toggle({ Title = "Auto Upgrade Plot", Default = false, Callback = function(V)
     _G.UpS = V while _G.UpS do pcall(function() game:GetService("ReplicatedStorage").Network.Client.UpgradeBrainrot:InvokeServer(Config.SelectedPlot) end) task.wait(0.01) end
 end})
 
--- [[ 4. TRADE & WARP ]]
-local TradeSec = TradeTab:Section({ Title = "Player Interactions", hideable = false })
+-- [[ 4. TRADE & WARP (กางออกถาวร) ]]
+local TradeSec = TradeTab:Section({ Title = "Player Interaction", hideable = false })
 local TargetID = nil
-TradeSec:Input({ Title = "Target Name", Placeholder = "Search...", Callback = function(T)
+TradeSec:Input({ Title = "Player Search", Placeholder = "Name...", Callback = function(T)
     for _, p in pairs(game.Players:GetPlayers()) do if p.Name:lower():sub(1, #T) == T:lower() then TargetID = p.UserId return end end
 end})
 TradeSec:Button({ Title = "🚀 Warp & Trade", Callback = function()
     local t = game.Players:GetPlayerByUserId(TargetID)
     if t and t.Character then
-        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = t.Character.HumanoidRootPart.CFrame * CFrame.new(0,0,3)
+        player.Character.HumanoidRootPart.CFrame = t.Character.HumanoidRootPart.CFrame * CFrame.new(0,0,3)
         task.wait(0.3); game.ReplicatedStorage.Network.Client.Trade:FireServer("request", tonumber(TargetID))
     end
 end})
 
--- [[ 5. MISC & SELL ]]
+-- [[ 5. MISC & AFK (กางออกถาวร) ]]
 local MiscSec = MiscTab:Section({ Title = "Utilities", hideable = false })
 MiscSec:Toggle({ Title = "Anti-AFK", Default = true, Callback = function(V) _G.AntiAFK = V end })
 MiscSec:Toggle({ Title = "Auto Rebirth", Default = false, Callback = function(V)
     _G.Rebirth = V while _G.Rebirth do pcall(function() game:GetService("ReplicatedStorage").Network.Client.Rebirth:InvokeServer() end) task.wait(1) end
 end})
-MiscSec:Toggle({ Title = "Auto Sell All", Default = false, Callback = function(V)
+MiscSec:Toggle({ Title = "Auto Sell All (True)", Default = false, Callback = function(V)
     _G.Sell = V while _G.Sell do pcall(function() game:GetService("ReplicatedStorage").Network.Client.SellAllEntities:InvokeServer(true) end) task.wait(1) end
 end})
 
--- [[ 6. WEBHOOK LOG ]]
+-- [[ 6. WEBHOOK LOG (กางออกถาวร) ]]
 local LogSec = LogTab:Section({ Title = "Discord Integration", hideable = false })
-LogSec:Input({ Title = "Webhook URL", Placeholder = "Paste Link...", Callback = function(T) Config.WebhookURL = T end })
-LogSec:Button({ Title = "🧪 Test Send Log", Callback = function() SendSummaryLog() end })
+LogSec:Input({ Title = "Webhook URL", Placeholder = "วาง Link Webhook ของพี่...", Callback = function(T) Config.WebhookURL = T end })
+LogSec:Button({ Title = "🧪 Test Send Log", Callback = function() sendSummaryLog() end })
 
-WindUI:Notify({ Title = "MonHub V13.2 Final", Content = "ทุกระบบพร้อมทำงานแบบ Full Option แล้วครับพี่!", Duration = 5 })
+WindUI:Notify({ Title = "MonHub V13.5 Full", Content = "โหลดครบทุกฟังก์ชันและกาง UI ให้แล้วครับพี่!", Duration = 5 })
