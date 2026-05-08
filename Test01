@@ -1,65 +1,32 @@
--- [[ MonHub | V14.2 - Full Functions Restored & Blue-White Theme ]]
+-- [[ MonHub | V14.6 - Rayfield Anti-AFK Integration ]]
 local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
 local HttpService = game:GetService("HttpService")
 local player = game.Players.LocalPlayer
 
--- [[ THEME SETUP - ฟ้า-ขาว เย็นตา ]]
-WindUI:AddTheme({
-    Name = "BlueWhiteComfort",
-    Accent = Color3.fromHex("#1e293b"),
-    Background = Color3.fromHex("#ffffff"),
-    BackgroundTransparency = 0,
-    Outline = Color3.fromHex("#e2e8f0"),
-    Text = Color3.fromHex("#1e293b"),
-    Placeholder = Color3.fromHex("#94a3b8"),
-    Button = Color3.fromHex("#f1f5f9"),
-    Icon = Color3.fromHex("#64748b"),
-    Hover = Color3.fromHex("#1e293b"),
-    WindowBackground = Color3.fromHex("#f1f5f9"),
-    WindowShadow = Color3.fromHex("#e2e8f0"),
-    DialogBackground = Color3.fromHex("#ffffff"),
-    DialogBackgroundTransparency = 0,
-    DialogTitle = Color3.fromHex("#1e293b"),
-    DialogContent = Color3.fromHex("#1e293b"),
-    DialogIcon = Color3.fromHex("#64748b"),
-    WindowTopbarButtonIcon = Color3.fromHex("#1e293b"),
-    WindowTopbarTitle = Color3.fromHex("#1e293b"),
-    WindowTopbarAuthor = Color3.fromHex("#1e293b"),
-    WindowTopbarIcon = Color3.fromHex("#1e293b"),
-    TabBackground = Color3.fromHex("#1e293b"),
-    TabTitle = Color3.fromHex("#1e293b"),
-    TabIcon = Color3.fromHex("#1e293b"),
-    ElementBackground = Color3.fromHex("#f1f5f9"),
-    ElementTitle = Color3.fromHex("#1e293b"),
-    ElementDesc = Color3.fromHex("#64748b"),
-    ElementIcon = Color3.fromHex("#1e293b"),
-    PopupBackground = Color3.fromHex("#ffffff"),
-    PopupBackgroundTransparency = 0,
-    PopupTitle = Color3.fromHex("#1e293b"),
-    PopupContent = Color3.fromHex("#1e293b"),
-    PopupIcon = Color3.fromHex("#64748b"),
-    Toggle = Color3.fromHex("#cbd5e1"),
-    ToggleBar = Color3.fromHex("#ffffff"),
-    Checkbox = Color3.fromHex("#cbd5e1"),
-    CheckboxIcon = Color3.fromHex("#ffffff"),
-    Slider = Color3.fromHex("#52525b"),
-    SliderThumb = Color3.fromHex("#ffffff"),
-})
+-- [[ 🚀 ระบบ ANTI-AFK แบบ RAYFIELD LOGIC ]]
+local VirtualUser = game:GetService("VirtualUser")
+player.Idled:Connect(function()
+    if _G.AntiAFK then
+        -- จำลองการขยับเมาส์และกดปุ่มเพื่อหลอกระบบว่าเรายังเล่นอยู่
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new())
+        warn("MonHub: Rayfield Anti-AFK Triggered! (Stay Active)")
+    end
+end)
 
 local Window = WindUI:CreateWindow({
-    Title = "MonHub | Block Master V14.2",
-    Icon = "rbxassetid://16124502570", -- โลโก้ MENEE
+    Title = "MonHub | Block Master V14.6",
+    Icon = "rbxassetid://16124502570", -- MENEE Logo
     Author = "Suriya Janthra",
     Folder = "MonHubConfigs"
 })
-Window:SetTheme("BlueWhiteComfort")
 
 -- [[ DATA LISTS ]]
 local WaterfallList = { "PinnacleBlock", "VerdictBlock", "HellcoreBlock", "DoomBlock", "BloodcodeBlock", "VortexBlock", "VercaBlock", "AnomalyBlock", "PhantomBlock", "CelestialEmperorBlock", "RadiantBlock", "AetherialBlock", "TheEndBlock", "KingsMantleBlock", "ToxicReactorBlock", "MoltenCoreBlock", "OuroborosBlock", "KingSunBlock", "InfinityBlock", "TimeBenderBlock", "BrambleBlock", "MagicBlock", "HeavenlyBlock", "DevilBlock", "AscendantBlock", "QuantumBlock", "GalaxyBlock", "MythicBlock", "LegendaryBlock", "EpicBlock", "RareBlock", "UncommonBlock", "CommonBlock" }
 local NormalList = { "CommonBlock", "UncommonBlock", "RareBlock", "EpicBlock", "LegendaryBlock", "MythicBlock", "GalaxyBlock", "QuantumBlock", "AscendantBlock", "DevilBlock", "HeavenlyBlock", "MagicBlock", "BrambleBlock", "TimeBenderBlock", "InfinityBlock", "KingSunBlock", "OuroborosBlock", "MoltenCoreBlock", "ToxicReactorBlock", "KingsMantleBlock", "TheEndBlock", "AetherialBlock", "RadiantBlock", "CelestialEmperorBlock", "PhantomBlock", "AnomalyBlock", "VercaBlock", "VortexBlock", "BloodcodeBlock", "DoomBlock", "HellcoreBlock", "VerdictBlock", "PinnacleBlock" }
 local PetEggs = { "Basic", "Coconut", "Crocodile", "Yeti", "Cupcake", "GoldenBasic" }
 
--- [[ WEBHOOK LOGIC (ห้ามแก้ - ชุดของพี่) ]]
+-- [[ WEBHOOK LOGIC (ชุดดั้งเดิมของพี่ - เรียงน้อยไปมาก) ]]
 local webhookURL = "ใส่ของตัวเอง"
 local purchaseQueue = {}
 local isWaiting = false
@@ -101,7 +68,7 @@ local function sendSummaryLog()
     isWaiting = false
 end
 
--- ระบบตรวจจับ
+-- ระบบตรวจจับการซื้อ
 task.spawn(function()
     while true do
         for _, v in ipairs(player:GetDescendants()) do
@@ -190,7 +157,7 @@ end})
 
 -- [[ 5. MISC & SETTINGS ]]
 local MiscSec = MiscTab:Section({ Title = "Utilities", hideable = false })
-MiscSec:Toggle({ Title = "Anti-AFK", Default = true, Callback = function(V) _G.AntiAFK = V end })
+MiscSec:Toggle({ Title = "Anti-AFK (Rayfield Engine)", Default = true, Callback = function(V) _G.AntiAFK = V end })
 MiscSec:Toggle({ Title = "Auto Rebirth", Default = false, Callback = function(V) _G.Rebirth = V while _G.Rebirth do pcall(function() game:GetService("ReplicatedStorage").Network.Client.Rebirth:InvokeServer() end) task.wait(1) end end})
 MiscSec:Toggle({ Title = "Auto Sell All", Default = false, Callback = function(V) _G.Sell = V while _G.Sell do pcall(function() game:GetService("ReplicatedStorage").Network.Client.SellAllEntities:InvokeServer(true) end) task.wait(1) end end})
 
@@ -199,4 +166,4 @@ local LogSec = LogTab:Section({ Title = "Discord Log", hideable = false })
 LogSec:Input({ Title = "Webhook URL", Placeholder = "Paste Link...", Callback = function(T) webhookURL = T end })
 LogSec:Button({ Title = "🧪 Test Send Log", Callback = function() sendSummaryLog() end })
 
-WindUI:Notify({ Title = "MonHub V14.2", Content = "ฟังก์ชัน Trade, Misc และ Log มาครบแล้วครับพี่!", Duration = 5 })
+WindUI:Notify({ Title = "MonHub V14.6", Content = "ใช้ระบบ Anti-AFK เดียวกับ Rayfield แล้วครับพี่!", Duration = 5 })
