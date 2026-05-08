@@ -1,9 +1,9 @@
--- [[ MonHub | V14.7 - Auto Equip Best Added & Original Logic ]]
+-- [[ MonHub | V14.8 - Correct Equip Best & Original Logic ]]
 local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
 local HttpService = game:GetService("HttpService")
 local player = game.Players.LocalPlayer
 
--- [[ 🚀 ระบบ ANTI-AFK แบบ RAYFIELD LOGIC ]]
+-- [[ 🚀 ระบบ ANTI-AFK แบบ RAYFIELD LOGIC (ห้ามแก้) ]]
 local VirtualUser = game:GetService("VirtualUser")
 player.Idled:Connect(function()
     if _G.AntiAFK then
@@ -14,7 +14,7 @@ player.Idled:Connect(function()
 end)
 
 local Window = WindUI:CreateWindow({
-    Title = "MonHub | Block Master V14.7",
+    Title = "MonHub | Block Master V14.8",
     Icon = "rbxassetid://16124502570", -- MENEE Logo
     Author = "Suriya Janthra",
     Folder = "MonHubConfigs"
@@ -67,7 +67,7 @@ local function sendSummaryLog()
     isWaiting = false
 end
 
--- ระบบตรวจจับการซื้อ (Logic เดิม)
+-- ระบบตรวจจับการซื้อ
 task.spawn(function()
     while true do
         for _, v in ipairs(player:GetDescendants()) do
@@ -134,11 +134,13 @@ BuySec:Button({ Title = "Buy Selected Max", Callback = function() if _G.MBT then
 
 -- [[ 3. PETS & PLOT ]]
 local PetSec = UpTab:Section({ Title = "Pet Systems", hideable = false })
--- เพิ่มระบบ Auto Equip Best (ห้ามแก้ Logic อื่น)
+-- แก้ไข Auto Equip ตามโค้ดที่พี่ส่งมาเป๊ะๆ
 PetSec:Toggle({ Title = "Auto Equip Best Pets", Default = false, Callback = function(V)
     _G.AutoEquipBest = V
     while _G.AutoEquipBest do
-        pcall(function() game:GetService("ReplicatedStorage").Network.Client.EquipBestPets:InvokeServer() end)
+        pcall(function() 
+            game:GetService("ReplicatedStorage"):WaitForChild("Network"):WaitForChild("Client"):WaitForChild("EquipBestEntities"):InvokeServer() 
+        end)
         task.wait(5)
     end
 end})
@@ -174,4 +176,4 @@ local LogSec = LogTab:Section({ Title = "Discord Log", hideable = false })
 LogSec:Input({ Title = "Webhook URL", Placeholder = "Paste Link...", Callback = function(T) webhookURL = T end })
 LogSec:Button({ Title = "🧪 Test Send Log", Callback = function() sendSummaryLog() end })
 
-WindUI:Notify({ Title = "MonHub V14.7", Content = "เพิ่มระบบ Auto Equip Best และฟังชั่นเดิมครบ 100% ครับพี่!", Duration = 5 })
+WindUI:Notify({ Title = "MonHub V14.8", Content = "ใช้โค้ด Equip Best ที่พี่ส่งมาให้แล้วครับ พร้อมฟังชั่นครบ!", Duration = 5 })
