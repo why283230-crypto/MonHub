@@ -1,4 +1,4 @@
--- [[ MonHub | V14.6 - Rayfield Anti-AFK Integration ]]
+-- [[ MonHub | V14.7 - Auto Equip Best Added & Original Logic ]]
 local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
 local HttpService = game:GetService("HttpService")
 local player = game.Players.LocalPlayer
@@ -7,15 +7,14 @@ local player = game.Players.LocalPlayer
 local VirtualUser = game:GetService("VirtualUser")
 player.Idled:Connect(function()
     if _G.AntiAFK then
-        -- จำลองการขยับเมาส์และกดปุ่มเพื่อหลอกระบบว่าเรายังเล่นอยู่
         VirtualUser:CaptureController()
         VirtualUser:ClickButton2(Vector2.new())
-        warn("MonHub: Rayfield Anti-AFK Triggered! (Stay Active)")
+        warn("MonHub: Rayfield Anti-AFK Triggered!")
     end
 end)
 
 local Window = WindUI:CreateWindow({
-    Title = "MonHub | Block Master V14.6",
+    Title = "MonHub | Block Master V14.7",
     Icon = "rbxassetid://16124502570", -- MENEE Logo
     Author = "Suriya Janthra",
     Folder = "MonHubConfigs"
@@ -26,7 +25,7 @@ local WaterfallList = { "PinnacleBlock", "VerdictBlock", "HellcoreBlock", "DoomB
 local NormalList = { "CommonBlock", "UncommonBlock", "RareBlock", "EpicBlock", "LegendaryBlock", "MythicBlock", "GalaxyBlock", "QuantumBlock", "AscendantBlock", "DevilBlock", "HeavenlyBlock", "MagicBlock", "BrambleBlock", "TimeBenderBlock", "InfinityBlock", "KingSunBlock", "OuroborosBlock", "MoltenCoreBlock", "ToxicReactorBlock", "KingsMantleBlock", "TheEndBlock", "AetherialBlock", "RadiantBlock", "CelestialEmperorBlock", "PhantomBlock", "AnomalyBlock", "VercaBlock", "VortexBlock", "BloodcodeBlock", "DoomBlock", "HellcoreBlock", "VerdictBlock", "PinnacleBlock" }
 local PetEggs = { "Basic", "Coconut", "Crocodile", "Yeti", "Cupcake", "GoldenBasic" }
 
--- [[ WEBHOOK LOGIC (ชุดดั้งเดิมของพี่ - เรียงน้อยไปมาก) ]]
+-- [[ WEBHOOK LOGIC (ชุดดั้งเดิมของพี่ - ห้ามแก้) ]]
 local webhookURL = "ใส่ของตัวเอง"
 local purchaseQueue = {}
 local isWaiting = false
@@ -68,7 +67,7 @@ local function sendSummaryLog()
     isWaiting = false
 end
 
--- ระบบตรวจจับการซื้อ
+-- ระบบตรวจจับการซื้อ (Logic เดิม)
 task.spawn(function()
     while true do
         for _, v in ipairs(player:GetDescendants()) do
@@ -134,9 +133,18 @@ BuySec:Dropdown({ Title = "Manual Buy Target", Options = NormalList, Callback = 
 BuySec:Button({ Title = "Buy Selected Max", Callback = function() if _G.MBT then pcall(function() game:GetService("ReplicatedStorage").Network.Client.PurchaseMaxItems:InvokeServer(_G.MBT, 999) end) end end })
 
 -- [[ 3. PETS & PLOT ]]
-local PetSec = UpTab:Section({ Title = "Hatch Eggs", hideable = false })
+local PetSec = UpTab:Section({ Title = "Pet Systems", hideable = false })
+-- เพิ่มระบบ Auto Equip Best (ห้ามแก้ Logic อื่น)
+PetSec:Toggle({ Title = "Auto Equip Best Pets", Default = false, Callback = function(V)
+    _G.AutoEquipBest = V
+    while _G.AutoEquipBest do
+        pcall(function() game:GetService("ReplicatedStorage").Network.Client.EquipBestPets:InvokeServer() end)
+        task.wait(5)
+    end
+end})
 PetSec:Dropdown({ Title = "Select Egg", Options = PetEggs, Callback = function(O) _G.SEgg = O end })
 PetSec:Toggle({ Title = "Auto Hatch", Default = false, Callback = function(V) _G.Hatch = V while _G.Hatch do if _G.SEgg then pcall(function() game:GetService("ReplicatedStorage").Network.Client.Hatch:InvokeServer(_G.SEgg, 1) end) end task.wait(0.1) end end})
+
 local PlotSec = UpTab:Section({ Title = "Plot Upgrades", hideable = false })
 PlotSec:Input({ Title = "Plot ID", Placeholder = "1", Callback = function(T) _G.PlotID = T end })
 PlotSec:Toggle({ Title = "Auto Upgrade Plot", Default = false, Callback = function(V) _G.UPS = V while _G.UPS do pcall(function() game:GetService("ReplicatedStorage").Network.Client.UpgradeBrainrot:InvokeServer(_G.PlotID or "1") end) task.wait(0.01) end end})
@@ -166,4 +174,4 @@ local LogSec = LogTab:Section({ Title = "Discord Log", hideable = false })
 LogSec:Input({ Title = "Webhook URL", Placeholder = "Paste Link...", Callback = function(T) webhookURL = T end })
 LogSec:Button({ Title = "🧪 Test Send Log", Callback = function() sendSummaryLog() end })
 
-WindUI:Notify({ Title = "MonHub V14.6", Content = "ใช้ระบบ Anti-AFK เดียวกับ Rayfield แล้วครับพี่!", Duration = 5 })
+WindUI:Notify({ Title = "MonHub V14.7", Content = "เพิ่มระบบ Auto Equip Best และฟังชั่นเดิมครบ 100% ครับพี่!", Duration = 5 })
