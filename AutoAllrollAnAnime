@@ -1,11 +1,22 @@
--- [[ MonHub | V13.8 - ใช้ Webhook Logic ล่าสุด + UI กางออกถาวร ]]
+-- [[ MonHub | V14.6 - Rayfield Anti-AFK Integration ]]
 local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
 local HttpService = game:GetService("HttpService")
 local player = game.Players.LocalPlayer
 
+-- [[ 🚀 ระบบ ANTI-AFK แบบ RAYFIELD LOGIC ]]
+local VirtualUser = game:GetService("VirtualUser")
+player.Idled:Connect(function()
+    if _G.AntiAFK then
+        -- จำลองการขยับเมาส์และกดปุ่มเพื่อหลอกระบบว่าเรายังเล่นอยู่
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new())
+        warn("MonHub: Rayfield Anti-AFK Triggered! (Stay Active)")
+    end
+end)
+
 local Window = WindUI:CreateWindow({
-    Title = "MonHub | Block Master V13.8",
-    Icon = "rbxassetid://10734835153",
+    Title = "MonHub | Block Master V14.6",
+    Icon = "rbxassetid://16124502570", -- MENEE Logo
     Author = "Suriya Janthra",
     Folder = "MonHubConfigs"
 })
@@ -15,8 +26,8 @@ local WaterfallList = { "PinnacleBlock", "VerdictBlock", "HellcoreBlock", "DoomB
 local NormalList = { "CommonBlock", "UncommonBlock", "RareBlock", "EpicBlock", "LegendaryBlock", "MythicBlock", "GalaxyBlock", "QuantumBlock", "AscendantBlock", "DevilBlock", "HeavenlyBlock", "MagicBlock", "BrambleBlock", "TimeBenderBlock", "InfinityBlock", "KingSunBlock", "OuroborosBlock", "MoltenCoreBlock", "ToxicReactorBlock", "KingsMantleBlock", "TheEndBlock", "AetherialBlock", "RadiantBlock", "CelestialEmperorBlock", "PhantomBlock", "AnomalyBlock", "VercaBlock", "VortexBlock", "BloodcodeBlock", "DoomBlock", "HellcoreBlock", "VerdictBlock", "PinnacleBlock" }
 local PetEggs = { "Basic", "Coconut", "Crocodile", "Yeti", "Cupcake", "GoldenBasic" }
 
--- [[ 1. NEW WEBHOOK LOGIC (ยกชุดจากที่พี่ส่งมา) ]]
-local webhookURL = "ใส่ของตัวเอง" -- จะถูกทับด้วยค่าจาก UI
+-- [[ WEBHOOK LOGIC (ชุดดั้งเดิมของพี่ - เรียงน้อยไปมาก) ]]
+local webhookURL = "ใส่ของตัวเอง"
 local purchaseQueue = {}
 local isWaiting = false
 
@@ -33,23 +44,14 @@ local function sendSummaryLog()
     task.wait(0.5) 
     local sortedList = {}
     for name, data in pairs(purchaseQueue) do
-        table.insert(sortedList, {
-            name = name,
-            bought = data.bought,
-            totalStock = data.instance.Value
-        })
+        table.insert(sortedList, { name = name, bought = data.bought, totalStock = data.instance.Value })
     end
-
-    -- เรียงลำดับจาก สต็อกรวมน้อย -> มาก
     table.sort(sortedList, function(a, b) return a.totalStock < b.totalStock end)
-
     local report = ""
     for i, data in ipairs(sortedList) do
         report = report .. string.format("%d. **%s**: `+%s` | รวม: `%s`\n", i, data.name, formatNumber(data.bought), formatNumber(data.totalStock))
     end
-
     if report == "" or webhookURL == "" or webhookURL == "ใส่ของตัวเอง" then isWaiting = false return end
-
     local payload = HttpService:JSONEncode({
         ["embeds"] = {{
             ["title"] = "📦 MonHub | รายงานสต็อก (น้อย ➔ มาก)",
@@ -59,18 +61,14 @@ local function sendSummaryLog()
             ["timestamp"] = DateTime.now():ToIsoDate()
         }}
     })
-
     local request = (syn and syn.request) or (http and http.request) or http_request or (Fluxus and Fluxus.request)
-    if request then
-        request({Url = webhookURL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = payload})
-    else
-        pcall(function() HttpService:PostAsync(webhookURL, payload) end)
-    end
+    if request then request({Url = webhookURL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = payload})
+    else pcall(function() HttpService:PostAsync(webhookURL, payload) end) end
     purchaseQueue = {}
     isWaiting = false
 end
 
--- [[ ระบบตรวจจับ (ใช้ Logic พี่ 100%) ]]
+-- ระบบตรวจจับการซื้อ
 task.spawn(function()
     while true do
         for _, v in ipairs(player:GetDescendants()) do
@@ -81,14 +79,9 @@ task.spawn(function()
                     v.Changed:Connect(function(newValue)
                         if newValue > lastValue then
                             local diff = newValue - lastValue
-                            if not purchaseQueue[v.Name] then
-                                purchaseQueue[v.Name] = {bought = 0, instance = v}
-                            end
+                            if not purchaseQueue[v.Name] then purchaseQueue[v.Name] = {bought = 0, instance = v} end
                             purchaseQueue[v.Name].bought = purchaseQueue[v.Name].bought + diff
-                            if not isWaiting then
-                                isWaiting = true
-                                task.delay(2, sendSummaryLog)
-                            end
+                            if not isWaiting then isWaiting = true; task.delay(2, sendSummaryLog) end
                         end
                         lastValue = newValue
                     end)
@@ -102,19 +95,19 @@ end)
 -- [[ UI TABS ]]
 local RollTab = Window:Tab({ Title = "Roll Systems", Icon = "list" })
 local BuyTab = Window:Tab({ Title = "Auto Buy", Icon = "shopping-cart" })
-local UpTab = Window:Tab({ Title = "Pets & Upgrades", Icon = "arrow-up-circle" })
+local UpTab = Window:Tab({ Title = "Pets & Plot", Icon = "arrow-up-circle" })
 local TradeTab = Window:Tab({ Title = "Trade & Warp", Icon = "refresh-cw" })
-local MiscTab = Window:Tab({ Title = "Misc & AFK", Icon = "settings" })
+local MiscTab = Window:Tab({ Title = "Misc & Settings", Icon = "settings" })
 local LogTab = Window:Tab({ Title = "Webhook Log", Icon = "message-square" })
 
--- [[ 1. ROLL SYSTEMS (กางออกถาวร) ]]
-local RollSec = RollTab:Section({ Title = "Smart & Manual Rolling", hideable = false })
-RollSec:Toggle({ Title = "Enable Smart Waterfall", Desc = "Auto Best Block Scan", Default = false, Callback = function(V)
+-- [[ 1. ROLL SYSTEMS ]]
+local RollSec = RollTab:Section({ Title = "Roll Options", hideable = false })
+RollSec:Toggle({ Title = "Smart Waterfall", Default = false, Callback = function(V)
     _G.SmartRollActive = V
     if not V then pcall(function() game:GetService("ReplicatedStorage").Network.Client.ToggleAutoRoll:FireServer(false) end) return end
     task.spawn(function()
         while _G.SmartRollActive do
-            local inv = player.PlayerGui:FindFirstChild("Main") and player.PlayerGui.Main.DiceContainer.Inventory.Scroll
+            local inv = player.PlayerGui:FindFirstChild("Main") and player.PlayerGui.Main:FindFirstChild("DiceContainer").Inventory.Scroll
             for _, blockName in ipairs(WaterfallList) do
                 if not _G.SmartRollActive then break end
                 local item = inv and inv:FindFirstChild(blockName)
@@ -127,36 +120,34 @@ RollSec:Toggle({ Title = "Enable Smart Waterfall", Desc = "Auto Best Block Scan"
         end
     end)
 end})
-RollSec:Dropdown({ Title = "Manual Target", Options = NormalList, Callback = function(O) _G.ManualTarget = O end })
+RollSec:Dropdown({ Title = "Manual Roll Target", Options = NormalList, Callback = function(O) _G.MRT = O end })
 RollSec:Toggle({ Title = "Start Manual Roll", Default = false, Callback = function(V)
-    _G.ManualRoll = V while _G.ManualRoll do if _G.ManualTarget ~= "" then pcall(function() game:GetService("ReplicatedStorage").Network.Client.RollBlock:InvokeServer(_G.ManualTarget); game:GetService("ReplicatedStorage").Network.Client.ToggleAutoRoll:FireServer(true) end) end task.wait(0.1) end
+    _G.MR = V while _G.MR do if _G.MRT then pcall(function() game:GetService("ReplicatedStorage").Network.Client.RollBlock:InvokeServer(_G.MRT); game:GetService("ReplicatedStorage").Network.Client.ToggleAutoRoll:FireServer(true) end) end task.wait(0.1) end
 end})
 
--- [[ 2. AUTO BUY (กางออกถาวร) ]]
-local BuySec = BuyTab:Section({ Title = "Mass Purchase", hideable = false })
+-- [[ 2. AUTO BUY ]]
+local BuySec = BuyTab:Section({ Title = "Buy Options", hideable = false })
 BuySec:Toggle({ Title = "Auto Buy ALL (33 Blocks)", Default = false, Callback = function(V)
     _G.BAll = V while _G.BAll do for _, n in pairs(WaterfallList) do if not _G.BAll then break end pcall(function() game:GetService("ReplicatedStorage").Network.Client.PurchaseMaxItems:InvokeServer(n, 999) end) end task.wait(0.1) end
 end})
+BuySec:Dropdown({ Title = "Manual Buy Target", Options = NormalList, Callback = function(O) _G.MBT = O end })
+BuySec:Button({ Title = "Buy Selected Max", Callback = function() if _G.MBT then pcall(function() game:GetService("ReplicatedStorage").Network.Client.PurchaseMaxItems:InvokeServer(_G.MBT, 999) end) end end })
 
--- [[ 3. PETS & UPGRADES (กางออกถาวร) ]]
-local PetSec = UpTab:Section({ Title = "Pets & Hatching", hideable = false })
-PetSec:Dropdown({ Title = "Select Egg", Options = PetEggs, Callback = function(O) _G.SelectedEgg = O end })
-PetSec:Toggle({ Title = "Auto Hatch Eggs", Default = false, Callback = function(V)
-    _G.Hatch = V while _G.Hatch do if _G.SelectedEgg ~= "" then pcall(function() game:GetService("ReplicatedStorage").Network.Client.Hatch:InvokeServer(_G.SelectedEgg, 1) end) end task.wait(0.1) end
-end})
+-- [[ 3. PETS & PLOT ]]
+local PetSec = UpTab:Section({ Title = "Hatch Eggs", hideable = false })
+PetSec:Dropdown({ Title = "Select Egg", Options = PetEggs, Callback = function(O) _G.SEgg = O end })
+PetSec:Toggle({ Title = "Auto Hatch", Default = false, Callback = function(V) _G.Hatch = V while _G.Hatch do if _G.SEgg then pcall(function() game:GetService("ReplicatedStorage").Network.Client.Hatch:InvokeServer(_G.SEgg, 1) end) end task.wait(0.1) end end})
 local PlotSec = UpTab:Section({ Title = "Plot Upgrades", hideable = false })
-PlotSec:Input({ Title = "Plot ID", Placeholder = "1", Callback = function(T) _G.SelectedPlot = T end })
-PlotSec:Toggle({ Title = "Auto Upgrade Plot", Default = false, Callback = function(V)
-    _G.UpS = V while _G.UpS do pcall(function() game:GetService("ReplicatedStorage").Network.Client.UpgradeBrainrot:InvokeServer(_G.SelectedPlot) end) task.wait(0.01) end
-end})
+PlotSec:Input({ Title = "Plot ID", Placeholder = "1", Callback = function(T) _G.PlotID = T end })
+PlotSec:Toggle({ Title = "Auto Upgrade Plot", Default = false, Callback = function(V) _G.UPS = V while _G.UPS do pcall(function() game:GetService("ReplicatedStorage").Network.Client.UpgradeBrainrot:InvokeServer(_G.PlotID or "1") end) task.wait(0.01) end end})
 
--- [[ 4. TRADE & WARP (กางออกถาวร) ]]
-local TradeSec = TradeTab:Section({ Title = "Player Interaction", hideable = false })
+-- [[ 4. TRADE & WARP ]]
+local TradeSec = TradeTab:Section({ Title = "Player Tools", hideable = false })
 local TargetID = nil
-TradeSec:Input({ Title = "Player Search", Placeholder = "Name...", Callback = function(T)
+TradeSec:Input({ Title = "Target Player Name", Placeholder = "Search...", Callback = function(T)
     for _, p in pairs(game.Players:GetPlayers()) do if p.Name:lower():sub(1, #T) == T:lower() then TargetID = p.UserId return end end
 end})
-TradeSec:Button({ Title = "🚀 Warp & Trade", Callback = function()
+TradeSec:Button({ Title = "🚀 Warp & Request Trade", Callback = function()
     local t = game.Players:GetPlayerByUserId(TargetID)
     if t and t.Character then
         player.Character.HumanoidRootPart.CFrame = t.Character.HumanoidRootPart.CFrame * CFrame.new(0,0,3)
@@ -164,23 +155,15 @@ TradeSec:Button({ Title = "🚀 Warp & Trade", Callback = function()
     end
 end})
 
--- [[ 5. MISC & AFK (กางออกถาวร) ]]
+-- [[ 5. MISC & SETTINGS ]]
 local MiscSec = MiscTab:Section({ Title = "Utilities", hideable = false })
-MiscSec:Toggle({ Title = "Anti-AFK", Default = true, Callback = function(V) _G.AntiAFK = V end })
-MiscSec:Toggle({ Title = "Auto Rebirth", Default = false, Callback = function(V)
-    _G.Rebirth = V while _G.Rebirth do pcall(function() game:GetService("ReplicatedStorage").Network.Client.Rebirth:InvokeServer() end) task.wait(1) end
-end})
-MiscSec:Toggle({ Title = "Auto Sell All (True)", Default = false, Callback = function(V)
-    _G.Sell = V while _G.Sell do pcall(function() game:GetService("ReplicatedStorage").Network.Client.SellAllEntities:InvokeServer(true) end) task.wait(1) end
-end})
+MiscSec:Toggle({ Title = "Anti-AFK (Rayfield Engine)", Default = true, Callback = function(V) _G.AntiAFK = V end })
+MiscSec:Toggle({ Title = "Auto Rebirth", Default = false, Callback = function(V) _G.Rebirth = V while _G.Rebirth do pcall(function() game:GetService("ReplicatedStorage").Network.Client.Rebirth:InvokeServer() end) task.wait(1) end end})
+MiscSec:Toggle({ Title = "Auto Sell All", Default = false, Callback = function(V) _G.Sell = V while _G.Sell do pcall(function() game:GetService("ReplicatedStorage").Network.Client.SellAllEntities:InvokeServer(true) end) task.wait(1) end end})
 
--- [[ 6. WEBHOOK LOG (กางออกถาวร) ]]
-local LogSec = LogTab:Section({ Title = "Discord Integration", hideable = false })
-LogSec:Input({ 
-    Title = "Webhook URL", 
-    Placeholder = "วาง Link Webhook ของพี่...", 
-    Callback = function(T) webhookURL = T end 
-})
+-- [[ 6. WEBHOOK LOG ]]
+local LogSec = LogTab:Section({ Title = "Discord Log", hideable = false })
+LogSec:Input({ Title = "Webhook URL", Placeholder = "Paste Link...", Callback = function(T) webhookURL = T end })
 LogSec:Button({ Title = "🧪 Test Send Log", Callback = function() sendSummaryLog() end })
 
-WindUI:Notify({ Title = "MonHub V13.8 Full", Content = "Webhook ชุดใหม่พร้อมทำงานและกางหน้าต่างถาวรแล้วครับ!", Duration = 5 })
+WindUI:Notify({ Title = "MonHub V14.6", Content = "ใช้ระบบ Anti-AFK เดียวกับ Rayfield แล้วครับพี่!", Duration = 5 })
