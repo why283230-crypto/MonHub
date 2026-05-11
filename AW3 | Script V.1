@@ -1,0 +1,82 @@
+-- ตรวจสอบ Place ID
+if game.PlaceId ~= 18923620224 then 
+    return 
+end
+
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "AW3 | Enil farm",
+   LoadingTitle = "Loading Script...",
+   LoadingSubtitle = "by MonHub",
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = "AW3_EnilFarm_Config",
+      FileName = "Settings"
+   }
+})
+
+local Tab = Window:CreateTab("Farm", 4483362458)
+
+_G.AutoFarmBest = false
+
+-- [Function] ค้นหาศัตรูแบบ Dynamic
+local function getEnemy()
+    local allEnemies = workspace.World.Enemies:GetChildren()
+    for _, v in pairs(allEnemies) do
+        if v:FindFirstChild("HumanoidRootPart") then
+            return v
+        end
+    end
+    return nil
+end
+
+-- [Function] ส่งรีโมทเปิดไข่
+local function fireEggRemote()
+    pcall(function()
+        local args = {"Sky", true}
+        game:GetService("ReplicatedStorage"):WaitForChild("rbxts_include"):WaitForChild("node_modules"):WaitForChild("@rbxts"):WaitForChild("remo"):WaitForChild("src"):WaitForChild("container"):WaitForChild("eggs.setAuto"):FireServer(unpack(args))
+    end)
+end
+
+-- [Function] Sequence (1-2-3-4) รอบเดียวจบแล้วตีมอนยาว
+local function startFarmBest()
+    -- 1. วาปไปจุดไข่ (ครั้งเดียว)
+    pcall(function()
+        local targetEgg = workspace.World.Map["Sky Island"].Components:GetChildren()[8]
+        if targetEgg then
+            game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = targetEgg:IsA("Model") and targetEgg:GetModelCFrame() or targetEgg.CFrame
+        end
+    end)
+
+    -- 2. รอ 2 วินาที
+    task.wait(2)
+
+    -- 3. ส่งรีโมทเปิดไข่ (ครั้งเดียว)
+    fireEggRemote()
+
+    -- 4. วาปไปหา Enil และตีไปเรื่อยๆ ไม่ต้องกลับไปหาไข่อีก
+    while _G.AutoFarmBest do
+        local enemy = getEnemy() 
+        if enemy and enemy:FindFirstChild("HumanoidRootPart") then
+            game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = enemy.HumanoidRootPart.CFrame
+        end
+        game:GetService("RunService").Heartbeat:Wait()
+    end
+end
+
+-- --- UI Elements ---
+
+Tab:CreateToggle({
+   Name = "Auto Farm Best",
+   CurrentValue = false,
+   Flag = "FarmBest_Save",
+   Callback = function(Value)
+      _G.AutoFarmBest = Value
+      if Value then 
+          task.spawn(startFarmBest) 
+      end
+   end,
+})
+
+Rayfield:LoadConfiguration()
