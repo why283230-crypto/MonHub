@@ -1,61 +1,105 @@
 -- ตรวจสอบ Place ID
-if game.PlaceId ~= 18923620224 then 
-    return 
-end
+if game.PlaceId ~= 18923620224 then return end
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-
 local Window = Rayfield:CreateWindow({
    Name = "AW3 | Enil farm",
    LoadingTitle = "Loading Script...",
-   LoadingSubtitle = "by MonHub",
-   ConfigurationSaving = {
-      Enabled = true,
-      FolderName = "AW3_EnilFarm_Config",
-      FileName = "Settings"
-   }
+   ConfigurationSaving = { Enabled = true, FolderName = "AW3_EnilFarm_Config", FileName = "Settings" }
 })
 
 local Tab = Window:CreateTab("Farm", 4483362458)
+local WebhookTab = Window:CreateTab("Webhook", 4483362458)
 
+-- Global Variables สำหรับ Webhook
+_G.WebhookURL = ""
+_G.DiscordUserID = ""
 _G.AutoFarmBest = false
 
--- [Function] ค้นหาศัตรูแบบ Dynamic
-local function getEnemy()
-    local allEnemies = workspace.World.Enemies:GetChildren()
-    for _, v in pairs(allEnemies) do
-        if v:FindFirstChild("HumanoidRootPart") then
-            return v
+-- [Function] ส่งข้อมูลไป Discord
+local function SendWebhook(msg, mention)
+    if _G.WebhookURL == "" or _G.WebhookURL == nil then return end
+    
+    local content = (mention and _G.DiscordUserID ~= "") and "<@".._G.DiscordUserID.."> " .. msg or msg
+    local data = {
+        ["content"] = content,
+        ["embeds"] = {{
+            ["title"] = "AW3 Farm Status Update",
+            ["description"] = msg,
+            ["color"] = mention and 16711680 or 65280,
+            ["fields"] = {
+                {["name"] = "Player", ["value"] = game.Players.LocalPlayer.Name, ["inline"] = true},
+                {["name"] = "Server Time", ["value"] = os.date("%X"), ["inline"] = true}
+            },
+            ["footer"] = { ["text"] = "Delta Executor User" },
+            ["timestamp"] = os.date("!%Y-%m-%dT%H:%M:%SZ")
+        }}
+    }
+    
+    pcall(function()
+        local http = game:GetService("HttpService")
+        local json = http:JSONEncode(data)
+        
+        if request then
+            request({Url = _G.WebhookURL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = json})
+        else
+            http:PostAsync(_G.WebhookURL, json)
         end
+    end)
+end
+
+-- [Function] เช็คสถานะ
+local function getStatusMessage(isError)
+    local status = isError and "❌ (Disconnected)" or "✅ (Running)"
+    local farmStatus = _G.AutoFarmBest and "✅ Active" or "❌ Stopped"
+    
+    return string.format(
+        "In-Game 👾: **Anime Vanguards**\nStatus: %s\nAuto Best Farm: %s\nWork: ✅",
+        status, farmStatus
+    )
+end
+
+-- [Webhook Loop] ส่งสถานะทุก 10 นาที
+task.spawn(function()
+    while true do
+        if _G.WebhookURL ~= "" and _G.AutoFarmBest then
+            SendWebhook(getStatusMessage(false), false)
+        end
+        task.wait(600) 
+    end
+end)
+
+-- [Detection] ตรวจสอบถ้าหลุดเกม
+game:GetService("CoreGui").ChildAdded:Connect(function(child)
+    if child.Name == "ErrorPrompt" then
+        SendWebhook("⚠️ **PLAYER DISCONNECTED!**\n" .. getStatusMessage(true), true)
+    end
+end)
+
+-- [Function] ค้นหาศัตรู
+local function getEnemy()
+    for _, v in pairs(workspace.World.Enemies:GetChildren()) do
+        if v:FindFirstChild("HumanoidRootPart") then return v end
     end
     return nil
 end
 
--- [Function] ส่งรีโมทเปิดไข่
-local function fireEggRemote()
-    pcall(function()
-        local args = {"Sky", true}
-        game:GetService("ReplicatedStorage"):WaitForChild("rbxts_include"):WaitForChild("node_modules"):WaitForChild("@rbxts"):WaitForChild("remo"):WaitForChild("src"):WaitForChild("container"):WaitForChild("eggs.setAuto"):FireServer(unpack(args))
-    end)
-end
-
--- [Function] Sequence (1-2-3-4) รอบเดียวจบแล้วตีมอนยาว
+-- [Function] Sequence (1-2-3-4)
 local function startFarmBest()
-    -- 1. วาปไปจุดไข่ (ครั้งเดียว)
     pcall(function()
         local targetEgg = workspace.World.Map["Sky Island"].Components:GetChildren()[8]
         if targetEgg then
             game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = targetEgg:IsA("Model") and targetEgg:GetModelCFrame() or targetEgg.CFrame
         end
     end)
-
-    -- 2. รอ 2 วินาที
+    
     task.wait(2)
-
-    -- 3. ส่งรีโมทเปิดไข่ (ครั้งเดียว)
-    fireEggRemote()
-
-    -- 4. วาปไปหา Enil และตีไปเรื่อยๆ ไม่ต้องกลับไปหาไข่อีก
+    
+    pcall(function()
+        local args = {"Sky", true}
+        game:GetService("ReplicatedStorage"):WaitForChild("rbxts_include"):WaitForChild("node_modules"):WaitForChild("@rbxts"):WaitForChild("remo"):WaitForChild("src"):WaitForChild("container"):WaitForChild("eggs.setAuto"):FireServer(unpack(args))
+    end)
+    
     while _G.AutoFarmBest do
         local enemy = getEnemy() 
         if enemy and enemy:FindFirstChild("HumanoidRootPart") then
@@ -67,6 +111,7 @@ end
 
 -- --- UI Elements ---
 
+-- Farm Tab
 Tab:CreateToggle({
    Name = "Auto Farm Best",
    CurrentValue = false,
@@ -74,8 +119,42 @@ Tab:CreateToggle({
    Callback = function(Value)
       _G.AutoFarmBest = Value
       if Value then 
-          task.spawn(startFarmBest) 
+          task.spawn(startFarmBest)
+          SendWebhook("🚀 **Started Auto Best Farm**\n" .. getStatusMessage(false), false)
       end
+   end,
+})
+
+-- Webhook Tab
+WebhookTab:CreateInput({
+   Name = "Discord Webhook URL",
+   PlaceholderText = "Paste URL here...",
+   RemoveTextAfterFocusLost = false,
+   Flag = "Webhook_URL_Save",
+   Callback = function(Text)
+      _G.WebhookURL = Text
+   end,
+})
+
+WebhookTab:CreateInput({
+   Name = "Discord User ID (For Tag)",
+   PlaceholderText = "Enter your ID...",
+   RemoveTextAfterFocusLost = false,
+   Flag = "Discord_ID_Save",
+   Callback = function(Text)
+      _G.DiscordUserID = Text
+   end,
+})
+
+WebhookTab:CreateButton({
+   Name = "Test Webhook",
+   Callback = function()
+       if _G.WebhookURL == "" then
+           Rayfield:Notify({Title = "Error", Content = "กรุณาใส่ Webhook URL ก่อนทดสอบ!", Duration = 3})
+       else
+           SendWebhook("🧪 **Test Connection**\n" .. getStatusMessage(false), false)
+           Rayfield:Notify({Title = "Webhook", Content = "ส่งข้อความทดสอบแล้ว!", Duration = 3})
+       end
    end,
 })
 
