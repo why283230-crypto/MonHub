@@ -11,15 +11,26 @@ local Window = Rayfield:CreateWindow({
 local Tab = Window:CreateTab("Farm", 4483362458)
 local WebhookTab = Window:CreateTab("Webhook", 4483362458)
 
--- Global Variables สำหรับ Webhook
+-- Global Variables
 _G.WebhookURL = ""
 _G.DiscordUserID = ""
 _G.AutoFarmBest = false
 
+-- [Function] เช็คสถานะและสร้างข้อความ Log
+local function getStatusMessage(isError)
+    local status = isError and "❌" or "✅"
+    local farmStatus = _G.AutoFarmBest and "✅" or "❌"
+    local workStatus = (_G.AutoFarmBest and not isError) and "✅" or "❌"
+    
+    return string.format(
+        "Anime Warriors 3 👾\nStatus %s\nAuto Best Farm %s\nWork %s",
+        status, farmStatus, workStatus
+    )
+end
+
 -- [Function] ส่งข้อมูลไป Discord
 local function SendWebhook(msg, mention)
     if _G.WebhookURL == "" or _G.WebhookURL == nil then return end
-    
     local content = (mention and _G.DiscordUserID ~= "") and "<@".._G.DiscordUserID.."> " .. msg or msg
     local data = {
         ["content"] = content,
@@ -35,11 +46,9 @@ local function SendWebhook(msg, mention)
             ["timestamp"] = os.date("!%Y-%m-%dT%H:%M:%SZ")
         }}
     }
-    
     pcall(function()
         local http = game:GetService("HttpService")
         local json = http:JSONEncode(data)
-        
         if request then
             request({Url = _G.WebhookURL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = json})
         else
@@ -48,24 +57,13 @@ local function SendWebhook(msg, mention)
     end)
 end
 
--- [Function] เช็คสถานะ
-local function getStatusMessage(isError)
-    local status = isError and "❌ (Disconnected)" or "✅ (Running)"
-    local farmStatus = _G.AutoFarmBest and "✅ Active" or "❌ Stopped"
-    
-    return string.format(
-        "In-Game 👾: **Anime Vanguards**\nStatus: %s\nAuto Best Farm: %s\nWork: ✅",
-        status, farmStatus
-    )
-end
-
 -- [Webhook Loop] ส่งสถานะทุก 10 นาที
 task.spawn(function()
     while true do
         if _G.WebhookURL ~= "" and _G.AutoFarmBest then
             SendWebhook(getStatusMessage(false), false)
         end
-        task.wait(600) 
+        task.wait(600) -- 10 นาที
     end
 end)
 
@@ -84,31 +82,6 @@ local function getEnemy()
     return nil
 end
 
--- [Function] Sequence (1-2-3-4)
-local function startFarmBest()
-    pcall(function()
-        local targetEgg = workspace.World.Map["Sky Island"].Components:GetChildren()[8]
-        if targetEgg then
-            game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = targetEgg:IsA("Model") and targetEgg:GetModelCFrame() or targetEgg.CFrame
-        end
-    end)
-    
-    task.wait(2)
-    
-    pcall(function()
-        local args = {"Sky", true}
-        game:GetService("ReplicatedStorage"):WaitForChild("rbxts_include"):WaitForChild("node_modules"):WaitForChild("@rbxts"):WaitForChild("remo"):WaitForChild("src"):WaitForChild("container"):WaitForChild("eggs.setAuto"):FireServer(unpack(args))
-    end)
-    
-    while _G.AutoFarmBest do
-        local enemy = getEnemy() 
-        if enemy and enemy:FindFirstChild("HumanoidRootPart") then
-            game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = enemy.HumanoidRootPart.CFrame
-        end
-        game:GetService("RunService").Heartbeat:Wait()
-    end
-end
-
 -- --- UI Elements ---
 
 -- Farm Tab
@@ -119,43 +92,70 @@ Tab:CreateToggle({
    Callback = function(Value)
       _G.AutoFarmBest = Value
       if Value then 
-          task.spawn(startFarmBest)
+          task.spawn(function()
+              pcall(function()
+                  local targetEgg = workspace.World.Map["Sky Island"].Components:GetChildren()[8]
+                  if targetEgg then
+                      game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = targetEgg:IsA("Model") and targetEgg:GetModelCFrame() or targetEgg.CFrame
+                  end
+              end)
+              task.wait(2)
+              pcall(function()
+                  local args = {"Sky", true}
+                  game:GetService("ReplicatedStorage"):WaitForChild("rbxts_include"):WaitForChild("node_modules"):WaitForChild("@rbxts"):WaitForChild("remo"):WaitForChild("src"):WaitForChild("container"):WaitForChild("eggs.setAuto"):FireServer(unpack(args))
+              end)
+              while _G.AutoFarmBest do
+                  local enemy = getEnemy() 
+                  if enemy and enemy:FindFirstChild("HumanoidRootPart") then
+                      game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = enemy.HumanoidRootPart.CFrame
+                  end
+                  game:GetService("RunService").Heartbeat:Wait()
+              end
+          end)
           SendWebhook("🚀 **Started Auto Best Farm**\n" .. getStatusMessage(false), false)
       end
    end,
 })
 
 -- Webhook Tab
+WebhookTab:CreateSection("Webhook Settings")
+
 WebhookTab:CreateInput({
    Name = "Discord Webhook URL",
-   PlaceholderText = "Paste URL here...",
+   PlaceholderText = "วางลิ้งค์ Webhook ที่นี่",
    RemoveTextAfterFocusLost = false,
    Flag = "Webhook_URL_Save",
-   Callback = function(Text)
-      _G.WebhookURL = Text
-   end,
+   Callback = function(Text) _G.WebhookURL = Text end,
 })
 
 WebhookTab:CreateInput({
-   Name = "Discord User ID (For Tag)",
-   PlaceholderText = "Enter your ID...",
+   Name = "Discord User ID",
+   PlaceholderText = "ใส่ ID ของคุณที่นี่",
    RemoveTextAfterFocusLost = false,
    Flag = "Discord_ID_Save",
-   Callback = function(Text)
-      _G.DiscordUserID = Text
-   end,
+   Callback = function(Text) _G.DiscordUserID = Text end,
 })
 
 WebhookTab:CreateButton({
    Name = "Test Webhook",
    Callback = function()
-       if _G.WebhookURL == "" then
-           Rayfield:Notify({Title = "Error", Content = "กรุณาใส่ Webhook URL ก่อนทดสอบ!", Duration = 3})
-       else
+       if _G.WebhookURL ~= "" then
            SendWebhook("🧪 **Test Connection**\n" .. getStatusMessage(false), false)
-           Rayfield:Notify({Title = "Webhook", Content = "ส่งข้อความทดสอบแล้ว!", Duration = 3})
+       else
+           Rayfield:Notify({Title = "Error", Content = "กรุณาใส่ Webhook URL!", Duration = 3})
        end
    end,
 })
 
+WebhookTab:CreateSection("Configuration Management")
+
+WebhookTab:CreateButton({
+   Name = "💾 Save Current Config (กดบันทึกที่นี่)",
+   Callback = function()
+       Rayfield:SaveConfiguration()
+       Rayfield:Notify({Title = "Config Saved", Content = "บันทึกค่า Webhook และการตั้งค่าเรียบร้อยแล้ว!", Duration = 3})
+   end,
+})
+
+-- โหลด Config เมื่อรันสคริปต์
 Rayfield:LoadConfiguration()
