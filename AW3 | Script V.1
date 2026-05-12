@@ -15,16 +15,17 @@ local WebhookTab = Window:CreateTab("Webhook", 4483362458)
 _G.WebhookURL = ""
 _G.DiscordUserID = ""
 _G.AutoFarmBest = false
+_G.AutoEggOnly = false
 
 -- [Function] เช็คสถานะและสร้างข้อความ Log
 local function getStatusMessage(isError)
     local status = isError and "❌" or "✅"
-    local farmStatus = _G.AutoFarmBest and "✅" or "❌"
-    local workStatus = (_G.AutoFarmBest and not isError) and "✅" or "❌"
+    local farmStatus = (_G.AutoFarmBest or _G.AutoEggOnly) and "✅" or "❌"
+    local mode = _G.AutoFarmBest and "Best Farm" or (_G.AutoEggOnly and "Egg Only" or "None")
     
     return string.format(
-        "Anime Warriors 3 👾\nStatus %s\nAuto Best Farm %s\nWork %s",
-        status, farmStatus, workStatus
+        "Anime Warriors 3 👾\nStatus %s\nMode: %s\nWork ✅",
+        status, mode
     )
 end
 
@@ -60,10 +61,10 @@ end
 -- [Webhook Loop] ส่งสถานะทุก 10 นาที
 task.spawn(function()
     while true do
-        if _G.WebhookURL ~= "" and _G.AutoFarmBest then
+        if _G.WebhookURL ~= "" and (_G.AutoFarmBest or _G.AutoEggOnly) then
             SendWebhook(getStatusMessage(false), false)
         end
-        task.wait(600) -- 10 นาที
+        task.wait(600) 
     end
 end)
 
@@ -82,17 +83,27 @@ local function getEnemy()
     return nil
 end
 
+-- [Function] ส่งรีโมทเปิดไข่
+local function fireEggRemote()
+    pcall(function()
+        local args = {"Sky", true}
+        game:GetService("ReplicatedStorage"):WaitForChild("rbxts_include"):WaitForChild("node_modules"):WaitForChild("@rbxts"):WaitForChild("remo"):WaitForChild("src"):WaitForChild("container"):WaitForChild("eggs.setAuto"):FireServer(unpack(args))
+    end)
+end
+
 -- --- UI Elements ---
 
--- Farm Tab
+-- [Farm Tab]
 Tab:CreateToggle({
-   Name = "Auto Farm Best",
+   Name = "Auto Farm Best (Egg + Boss)",
    CurrentValue = false,
    Flag = "FarmBest_Save",
    Callback = function(Value)
       _G.AutoFarmBest = Value
       if Value then 
+          _G.AutoEggOnly = false -- ปิดอีกโหมดถ้าเปิดโหมดนี้
           task.spawn(function()
+              -- วาปไปไข่ก่อนครั้งแรก
               pcall(function()
                   local targetEgg = workspace.World.Map["Sky Island"].Components:GetChildren()[8]
                   if targetEgg then
@@ -100,10 +111,8 @@ Tab:CreateToggle({
                   end
               end)
               task.wait(2)
-              pcall(function()
-                  local args = {"Sky", true}
-                  game:GetService("ReplicatedStorage"):WaitForChild("rbxts_include"):WaitForChild("node_modules"):WaitForChild("@rbxts"):WaitForChild("remo"):WaitForChild("src"):WaitForChild("container"):WaitForChild("eggs.setAuto"):FireServer(unpack(args))
-              end)
+              fireEggRemote()
+              -- วาปตีบอสยาว
               while _G.AutoFarmBest do
                   local enemy = getEnemy() 
                   if enemy and enemy:FindFirstChild("HumanoidRootPart") then
@@ -117,7 +126,35 @@ Tab:CreateToggle({
    end,
 })
 
--- Webhook Tab
+Tab:CreateToggle({
+   Name = "Auto Egg Only (Stand & 30s Loop)",
+   CurrentValue = false,
+   Flag = "AutoEggOnly_Save",
+   Callback = function(Value)
+      _G.AutoEggOnly = Value
+      if Value then 
+          _G.AutoFarmBest = false -- ปิดโหมดฟาร์มบอส
+          task.spawn(function()
+              -- วาปไปยืนที่จุดไข่
+              pcall(function()
+                  local targetEgg = workspace.World.Map["Sky Island"].Components:GetChildren()[8]
+                  if targetEgg then
+                      game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = targetEgg:IsA("Model") and targetEgg:GetModelCFrame() or targetEgg.CFrame
+                  end
+              end)
+              task.wait(2)
+              -- ลูปรันรีโมททุก 30 วินาที
+              while _G.AutoEggOnly do
+                  fireEggRemote()
+                  task.wait(30)
+              end
+          end)
+          SendWebhook("🥚 **Started Auto Egg Only**\n" .. getStatusMessage(false), false)
+      end
+   end,
+})
+
+-- [Webhook Tab]
 WebhookTab:CreateSection("Webhook Settings")
 
 WebhookTab:CreateInput({
@@ -153,9 +190,8 @@ WebhookTab:CreateButton({
    Name = "💾 Save Current Config (กดบันทึกที่นี่)",
    Callback = function()
        Rayfield:SaveConfiguration()
-       Rayfield:Notify({Title = "Config Saved", Content = "บันทึกค่า Webhook และการตั้งค่าเรียบร้อยแล้ว!", Duration = 3})
+       Rayfield:Notify({Title = "Config Saved", Content = "บันทึกค่าเรียบร้อยแล้ว!", Duration = 3})
    end,
 })
 
--- โหลด Config เมื่อรันสคริปต์
 Rayfield:LoadConfiguration()
